@@ -1,0 +1,15 @@
+.tags
+
+**/*.a
+**/*.o
+**/*.so
+
+**/*.pem
+
+**/*_[tu].[hc]
+**/*.capnp.[hc]
+
+**/*.sd
+
+ipas-css/css
+ipas-app-hello/hello

@@ -1,0 +1,11 @@
+enclave {
+	// from "usgx/usgx.edl" import *;
+	from "ipas/attestation.edl" import *;
+	from "ipas/sealing.edl" import *;
+
+	trusted {
+		// public void dummy();
+		public void dummy_2();
+		public void dummy_3();
+	};
+};

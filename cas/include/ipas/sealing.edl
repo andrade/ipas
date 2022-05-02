@@ -1,0 +1,47 @@
+enclave {
+
+	from "usgx/usgx.edl" import *;
+	// from "usgx/libc/stdio.edl" import *;
+
+	include "sgx_tcrypto.h"
+	include "ipas/errors.h"
+
+	trusted {
+		public ipas_status ipas_s_get_sealing_key([out] uint8_t iv[12], [out] uint8_t ct[64], [out] uint8_t tag[16], uint32_t sid);
+
+		public ipas_status ipas_s_process_m1([out, size=640] void *data, [out] uint32_t *size, [out] sgx_cmac_128bit_tag_t *mac, uint32_t sid, [in] uint8_t iv[12], [in] uint8_t ct[64], [in] sgx_aes_gcm_128bit_tag_t *tag);
+
+		public ipas_status ipas_s_process_m2(
+			uint32_t sid,
+			[in, size=n] const void *data, uint32_t n,
+			[in] const sgx_cmac_128bit_tag_t *mac
+		);
+
+		// optional check of return message: to verify if nonces match
+
+		public ipas_status ipas_u_preprocess_m1(
+			[out] uint8_t nonce[16],
+			[out] sgx_cmac_128bit_tag_t *mac,
+			uint32_t sid,
+			[in, size=n] void *data, uint32_t n
+		);
+
+		public ipas_status ipas_u_process_m1(
+			[out] uint8_t iv[12],
+			[out] uint8_t ct[16],
+			[out] uint8_t tag[16],
+
+			uint32_t sid,
+			[in] uint8_t nonce[16],
+			[in, size=n] const void *data, uint32_t n,
+			[in] sgx_cmac_128bit_tag_t *mac
+		);
+
+		public ipas_status ipas_u_process_m2(
+			uint32_t sid,
+			[in] uint8_t iv[12],
+			[in] uint8_t ct[16],
+			[in] uint8_t tag[16]
+		);
+	};
+};
