@@ -99,8 +99,6 @@ ipas_status ipas_s_get_sealing_key(
 		return IPAS_FAILURE;
 	}
 
-	// printf("******* 1 inside enclave, during get M1 of sealing\n");
-
 	uint8_t plaintext[16 + 16] = {0}; // nonce(16)||key(16)
 	if (sgx_read_rand(plaintext, sizeof(plaintext))) {
 		return IPAS_FAILURE;
@@ -161,8 +159,6 @@ ipas_status ipas_s_process_m1(
 	uint8_t *nonce = plaintext + 0;
 	uint8_t *key = plaintext + 16;
 
-	// printf("******* 2a inside enclave, during processing M2 of sealing\n");
-
 	// seal K
 	*size = sgx_calc_sealed_data_size(0, 16);
 	if (0xffffffff == *size) {
@@ -194,9 +190,6 @@ ipas_status ipas_s_process_m1(
 		return IPAS_FAILURE;
 	}
 	sgx_cmac128_close(cmac_handle);
-
-	// printf("******* 2b inside enclave, during processing M2 of sealing\n");
-	// FIXME causes "Illegal instruction (core dumped)" in CSS, but works in hello
 
 	return IPAS_SUCCESS;
 }
