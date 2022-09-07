@@ -451,7 +451,7 @@ static int process_m3(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 		LOG("Error: ipas_ma_get_p3 (%d)\n", r);
 		return fail_m3(wbuf, wcap, wlen, &ia, CSSMessageStatus_failure);
 	}
-	// ipas_attest_dump_m13(&m13);
+	ipas_ma_p3_dump(&p3);
 
 	struct ipas_ma_p4 p4 = {0};
 	if (get_p4(&ia, &p3, &p4)) {

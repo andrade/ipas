@@ -11,6 +11,8 @@
 #include <sgx_uae_epid.h>               // quote
 #include <sgx_report.h>
 
+#include <usgx/c/print_types.h>
+
 #include "ipas/u/attestation.h"
 #include "attestation_u.h"
 #include "one.h"
@@ -761,6 +763,32 @@ void ipas_ma_dump_m3(struct ipas_ma_m3 *m3)
 	fprintf(stderr, "%s", s);
 }
 
+// Dumps `struct ipas_ma_p3` to `stderr`.
+void ipas_ma_p3_dump(struct ipas_ma_p3 *p3)
+{
+	char quote_a[4096 * 2] = {0};
+	char quote_b[4096 * 2] = {0};
+
+	const char l1[] = "-------- p3 --------";
+	const char l4[] = "-------- -- --------";
+
+	sgx_quote_to_str(quote_a, sizeof(quote_a), (sgx_quote_t *) p3->quote_a);
+	sgx_quote_to_str(quote_b, sizeof(quote_b), (sgx_quote_t *) p3->quote_b);
+	fprintf(stderr,
+			"%s\n"
+			"$quote_a = %s\n"
+			"$quote_b = %s\n"
+			"%s\n",
+			l1, quote_a, quote_b, l4);
+
+	// // for CLI curl to IAS
+	// char s1[8192] = {0};
+	// u8_to_str(s1, p3->quote_a, p3->size_a, "");
+	// char s2[16384] = {0};
+	// u8_to_str(s2, p3->quote_b, p3->size_b, "");
+	// fprintf(stderr, "\nAQuote: %s\n\nBQuote %s\n\n", s1, s2);
+}
+
 void ipas_ma_dump_m4(struct ipas_ma_m4 *m4)
 {
 	size_t size = 4096 * 3 + 1024;
@@ -809,25 +837,6 @@ void ipas_ma_dump_m4(struct ipas_ma_m4 *m4)
 			l4);
 
 	fprintf(stderr, "%s", s);
-}
-
-void ipas_attest_dump_p3(struct ipas_ma_p3 *p3)
-{
-	fprintf(stderr, "%s\n", "dump p3 TODO");
-
-	char quote_a[4096 * 3] = {0};
-	sgx_quote_to_str_0(4096 * 3, quote_a, (sgx_quote_t *) p3->quote_a);
-	fprintf(stderr, "AQuote %s\n", quote_a);
-	char quote_b[4096 * 3] = {0};
-	sgx_quote_to_str_0(4096 * 3, quote_b, (sgx_quote_t *) p3->quote_b);
-	fprintf(stderr, "BQuote %s\n", quote_b);
-
-	// for CLI curl to IAS
-	char s1[8192] = {0};
-	u8_to_str(s1, p3->quote_a, p3->size_a, "");
-	char s2[16384] = {0};
-	u8_to_str(s2, p3->quote_b, p3->size_b, "");
-	fprintf(stderr, "\nAQuote: %s\n\nBQuote %s\n\n", s1, s2);
 }
 
 // void ipas_ma_dump_m6(struct ipas_ma_m6 *m6)

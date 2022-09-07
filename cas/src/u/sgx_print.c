@@ -36,6 +36,7 @@ static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *
 }
 // NOTE copied from u/attestation.c (shouldn't this be in one.h ??)
 
+// TORM obsolete, use usgx
 void sgx_quote_to_str_0(size_t cap, char dest[static cap],
 		const sgx_quote_t *quote)
 {
@@ -71,6 +72,7 @@ void sgx_quote_to_str_0(size_t cap, char dest[static cap],
 			quote->signature_len);
 }
 
+// TORM obsolete, use usgx
 void sgx_quote_to_str_1(size_t cap, char dest[static cap],
 		const sgx_quote_t *quote)
 {

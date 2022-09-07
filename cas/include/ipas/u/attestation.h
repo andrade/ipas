@@ -237,6 +237,8 @@ void ipas_ma_dump_p1(struct ipas_ma_p1 *p1);
 
 void ipas_ma_dump_m3(struct ipas_ma_m3 *m3);
 
+void ipas_ma_p3_dump(struct ipas_ma_p3 *p3);
+
 void ipas_ma_dump_m4(struct ipas_ma_m4 *m4);
 
 // void ipas_attest_dump_m13(struct ipas_attest_m13 *m13);

@@ -10,6 +10,7 @@
 
 #include <sgx_quote.h>
 
+// TORM obsolete, use usgx
 /**
 ** Print quote to `dest` string of capacity `cap`.
 ** Truncated when capacity is insufficient.
@@ -18,6 +19,7 @@
 void sgx_quote_to_str_0(size_t cap, char dest[static cap],
 		const sgx_quote_t *quote);
 
+// TORM obsolete, use usgx
 /**
 ** Print quote to `dest` string of capacity `cap`.
 ** Truncated when capacity is insufficient.

@@ -1,5 +1,6 @@
 export FOOSSL_INCLUDE=/home/daniel/vc/foossl/include
 export FOOSSL_LIBRARY=/home/daniel/vc/foossl/static
+export USGX_HOME=$HOME/vc/usgx
 
 export IPAS_HOME=/home/daniel/w/main/20A1/vc/ipas/cas
 export IPAS_ATTESTATION_LIB=/home/daniel/w/main/20A1/vc/ipas/cas
