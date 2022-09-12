@@ -13,7 +13,6 @@ int get_report(uint32_t *code,
 		char *sig, size_t sig_cap,
 		char *cc, size_t cc_cap,
 		char *report, size_t report_cap,
-		// char *quote_status,
 		int fd_ignored, sgx_quote_t *quote, uint32_t quote_size);
 
 #endif

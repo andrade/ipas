@@ -592,7 +592,6 @@ int rap_decode_reply_report(struct ra_report *report, const uint8_t *input, size
 	struct ResponseReport r2;
 	ResponseReport_ptr inner_rep = rep.responseReport;
 	read_ResponseReport(&r2, inner_rep);
-	// *code = r2.code;
 	report->code = r2.code;
 	snprintf(report->rid, sizeof(report->rid), "%s", r2.rid.str);
 	snprintf(report->signature, sizeof(report->signature), "%s", r2.signature.str);

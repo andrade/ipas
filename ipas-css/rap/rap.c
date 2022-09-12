@@ -148,7 +148,6 @@ int get_report(uint32_t *code,
 		char *sig, size_t sig_cap,
 		char *cc, size_t cc_cap,
 		char *report, size_t report_cap,
-		// char *quote_status,
 		int fd_ignored, sgx_quote_t *quote, uint32_t quote_size)
 {
 	int fd;
@@ -191,7 +190,12 @@ int get_report(uint32_t *code,
 	fprintf(stderr, "HTTP response code received (report): %"PRIu32"\n", rr.code);
 
 	*code = rr.code;
-	// strncpy(quote_status, rr.avr.quote_status, sizeof(rr.avr.quote_status));
+	snprintf(rid, rid_cap, "%s", rr.rid);
+	snprintf(sig, sig_cap, "%s", rr.signature);
+	if (200 == rr.code) {
+		snprintf(cc, cc_cap, "%s", rr.certificates);
+		snprintf(report, report_cap, "%s", rr.avr);
+	}
 
 
 	close(fd);
