@@ -57,8 +57,8 @@ struct ra_report {
 
 	uint32_t code;              // reply, mandatory
 	char rid[32+1];             // reply
-	char signature[256];        // reply, set only when status code is 200
-	char certificates[1024];    // reply, set only when status code is 200
+	char signature[1024];       // reply, set only when status code is 200
+	char certificates[8192];    // reply, set only when status code is 200
 
 	//struct ra_avr avr;          // reply, set only when status code is 200
 	char avr[4096];             // as returned from IAS, for enclave sig check

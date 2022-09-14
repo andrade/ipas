@@ -1,5 +1,8 @@
 enclave {
 
+	from "sgx_tsgxssl.edl" import *;
+	from "sgx_pthread.edl" import *;
+
 	include "sgx_tcrypto.h"
 	include "ipas/errors.h"
 

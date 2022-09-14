@@ -586,47 +586,57 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 {
 	int r;
 
-	uint8_t buffer[8192 + 3*1024*1024] = {0};
+	size_t bsz = 8 * 1024 * 1024; // 8 MiB
+	void *buffer = malloc(bsz);
+	if (!buffer) {
+		return 0xE2;
+	}
 	uint32_t length;
 
 	// get m1 in A (initiator)
 	struct ipas_ma_m1 m1 = {0};
 	if (ipas_ma_get_m1(ia, &m1)) {
 		fprintf(stderr, "ipas_ma_get_m1: failure\n");
+		free(buffer);
 		return 0xE2;
 	}
 
 	// read enclave from persistent memory
-	uint8_t tdso[2*1024*1024] = {0};
-	size_t tdso_size = 0;
-	if (load_data(tdso, sizeof(tdso), &tdso_size, "enclave.signed.so")) {
-		fprintf(stderr, "Error: loading enclave\n");
+	size_t tdso_max = 5 * 1024 * 1024; // 5 MiB
+	void *tdso = malloc(tdso_max);
+	if (!tdso) {
+		free(buffer);
 		return 0xE2;
+	}
+	size_t tdso_size = 0;
+	if (load_data(tdso, tdso_max, &tdso_size, "enclave.signed.so")) {
+		fprintf(stderr, "Error: loading enclave\n");
+		goto error;
 	}
 
 	// read untrusted DSO from persistent memory
-	uint8_t udso[64*1024] = {0};
+	uint8_t udso[256 * 1024] = {0}; // 256 KiB
 	size_t udso_size = 0;
 	if (load_data(udso, sizeof(udso), &udso_size, "untrusted.so")) {
 		fprintf(stderr, "Error: loading untrusted shared library\n");
-		return 0xE2;
+		goto error;
 	}
 
 	// serialize m1
-	if (encode_m1(buffer, sizeof(buffer), &length,
+	if (encode_m1(buffer, bsz, &length,
 			tdso, tdso_size,
 			udso, udso_size,
 			&m1.egid_a, sizeof(m1.egid_a),
 			&m1.gid_a, sizeof(m1.gid_a),
 			&m1.pub_a, sizeof(m1.pub_a))) {
 		fprintf(stderr, "Error: encode_m1\n");
-		return 0xE2;
+		goto error;
 	}
 
 	// send m1 to B (responder) and receive m2
-	if (ne(buffer, sizeof(buffer), &length, ssl, buffer, length)) {
+	if (ne(buffer, bsz, &length, ssl, buffer, length)) {
 		fprintf(stderr, "Error: m1 <> m2\n");
-		return 0xE2;
+		goto error;
 	}
 	fprintf(stdout, "> Message 1\n");
 	fprintf(stdout, "< Message 2\n");
@@ -635,27 +645,27 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 	struct ipas_ma_m2 m2 = {0};
 	if (decode_m2(&m2, buffer, length)) {
 		fprintf(stderr, "Error: decode_m2\n");
-		return 0xE2;
+		goto error;
 	}
 
 	// get m3 in A (initiator)
 	struct ipas_ma_m3 m3 = {0};
 	if (ipas_ma_get_m3(ia, &m2, &m3)) {
 		fprintf(stderr, "ipas_ma_get_m3: failure\n");
-		return 0xE2;
+		goto error;
 	}
 	ipas_ma_dump_m3(&m3);
 
 	// serialize m3
-	if (encode_m3(buffer, sizeof(buffer), &length, m3.quote_a, m3.size_a)) {
+	if (encode_m3(buffer, bsz, &length, m3.quote_a, m3.size_a)) {
 		fprintf(stderr, "Error: encode_m3\n");
-		return 0xE2;
+		goto error;
 	}
 
 	// send m3 to B (responder) and receive m4
-	if (ne(buffer, sizeof(buffer), &length, ssl, buffer, length)) {
+	if (ne(buffer, bsz, &length, ssl, buffer, length)) {
 		fprintf(stderr, "Error: m3 <> m4\n");
-		return 0xE2;
+		goto error;
 	}
 	fprintf(stdout, "> Message 3\n");
 	fprintf(stdout, "< Message 4\n");
@@ -664,16 +674,22 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 	struct ipas_ma_m4 m4 = {0};
 	if (decode_m4(&m4, buffer, length)) {
 		fprintf(stderr, "Error: decode_m4\n");
-		return 0xE2;
+		goto error;
 	}
 
 	// process m4 in A (initiator) and complete MA protocol
 	if (r = ipas_ma_conclude(ia, &m4)) {
 		fprintf(stderr, "ipas_ma_conclude: failure (%d)\n", r);
-		return 0xE2;
+		goto error;
 	}
 
+	free(buffer);
+	free(tdso);
 	return 0;
+error:
+	free(buffer);
+	free(tdso);
+	return 0xE2;
 }
 
 /**

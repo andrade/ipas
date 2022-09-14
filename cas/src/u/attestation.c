@@ -13,12 +13,11 @@
 
 #include <usgx/c/print_types.h>
 
+#include "ipas/debug.h"
 #include "ipas/u/attestation.h"
 #include "attestation_u.h"
 #include "one.h"
 #include "sgx_print.h"
-
-#include "debug.h"
 
 // #include "serialization.h"
 

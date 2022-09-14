@@ -101,7 +101,7 @@ endif
 # in SIM: sgx_uae_service_sim
 # but HW: sgx_launch + sgx_epid
 
-CFLAGS := -m64 -Wall -Wextra
+CFLAGS := -m64 -std=c11 -Wall -Wextra
 
 ifeq ($(SGX_DEBUG),1)
 	CFLAGS += -O0 -g
@@ -159,17 +159,21 @@ APP_CFLAGS := $(CFLAGS) \
 		-I$(USGX_HOME)/include \
 		-I$(IPAS_ATTESTATION_LIB)/include \
 		-I$(FOOSSL_INCLUDE) \
+		-I$(SGX_SSL)/include \
 		-I$(SGX_SDK)/include -fPIC -Wno-attributes
 APP_LDFLAGS := \
 		-L$(USGX_HOME) \
 		-L$(IPAS_ATTESTATION_LIB) \
-		-L$(IPAS_LIB_DIR) -L$(FOOSSL_LIBRARY) -L$(SGX_SDK)/lib64
+		-L$(IPAS_LIB_DIR) -L$(FOOSSL_LIBRARY) \
+		-L$(SGX_SSL)/lib64 \
+		-L$(SGX_SDK)/lib64
 		#-Wl,-rpath,$(SGX_SDK)/sdk_libs,--disable-new-dtags
 ifeq ($(SGX_MODE),HW)
 APP_LDLIBS := \
 		-lipas-attestation-normal \
 		-lipas-sealing-normal \
 		-lusgx-normal \
+		-lsgx_usgxssl \
 		-lfoossl_server -lfoossl_common \
 		-l$(SGX_URTS) -l$(SGX_LAUNCH) -l$(SGX_EPID) \
 		-ldl -lssl -lcrypto \
@@ -179,6 +183,7 @@ APP_LDLIBS := \
 		-lipas-attestation-normal \
 		-lipas-sealing-normal \
 		-lusgx-normal \
+		-lsgx_usgxssl \
 		-lfoossl_server -lfoossl_common \
 		-l$(SGX_URTS) -l$(SGX_UAE_SERVICE) \
 		-ldl -lssl -lcrypto \

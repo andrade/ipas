@@ -131,61 +131,72 @@ TLIB_CFLAGS := $(CFLAGS) -std=c11 \
 ENC_IPATHS := \
 		-I$(IPAS_ATTESTATION_LIB)/include \
 		-I$(USGX_HOME)/include \
-		-I$(SGX_SDK)/include \
-		-I$(SGX_SDK)/include/tlibc \
-		-I$(SGX_SDK)/include/stlport
-ENC_CFLAGS := $(CFLAGS) -fPIC -Wno-implicit-function-declaration \
-		-std=c11 -nostdinc -fvisibility=hidden \
-		-fpie -fstack-protector -fno-builtin-printf \
-		$(ENC_IPATHS)
+		-I$(SGX_SSL)/include \
+		-I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
+ENC_CFLAGS := $(CFLAGS) $(ENC_IPATHS) \
+		-fPIC -Wno-implicit-function-declaration \
+		-nostdinc -fvisibility=hidden \
+		-fpie -fstack-protector -fno-builtin-printf
 ENC_LDFLAGS := $(CFLAGS) \
 		-nostdlib -nodefaultlibs -nostartfiles \
-		-L$(SGX_SDK)/lib64 \
 		-L$(USGX_HOME) \
-		-L$(IPAS_ATTESTATION_LIB) -L$(IPAS_LIB_DIR)
+		-L$(IPAS_ATTESTATION_LIB) \
+		-L$(IPAS_LIB_DIR) \
+		-L$(SGX_SSL)/lib64 \
+		-L$(SGX_SDK)/lib64
 ENC_LDLIBS := \
 		-lipas-attestation-secure \
 		-lipas-sealing-secure \
 		-lusgx-secure \
 		-Wl,--no-undefined \
+		-Wl,--whole-archive -lsgx_tsgxssl -Wl,--no-whole-archive \
+		-lsgx_tsgxssl_crypto -lsgx_pthread \
 		-Wl,--whole-archive -l$(SGX_TRTS) -Wl,--no-whole-archive \
-		-Wl,--start-group -lsgx_tstdc -lsgx_tcrypto -l$(SGX_TSERVICE) -Wl,--end-group \
+		-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_tcrypto -l$(SGX_TSERVICE) -Wl,--end-group \
 		-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined -Wl,-pie,-eenclave_entry -Wl,--export-dynamic \
 		-Wl,--defsym,__ImageBase=0 -Wl,--version-script=enclave.lds
-#-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -lsgx_tcrypto -lsgx_tservice_sim -Wl,--end-group
 
 ULIB_CPPFLAGS := -I. \
 		-I$(USGX_HOME)/include \
 		-I$(IPAS_ATTESTATION_LIB)/include \
+		-I$(SGX_SSL)/include \
 		-I$(SGX_SDK)/include
-ULIB_CFLAGS := -fPIC -Wno-attributes $(CFLAGS)
+ULIB_CFLAGS := $(CFLAGS) -fPIC -Wno-attributes
 ULIB_LDFLAGS := -shared \
 		-L$(USGX_HOME) \
 		-L$(IPAS_ATTESTATION_LIB) \
 		-L$(IPAS_LIB_DIR) \
+		-L$(SGX_SSL)/lib64 \
 		-L$(SGX_SDK)/lib64
 ULIB_LDLIBS := \
 		-lipas-attestation-normal \
 		-lipas-sealing-normal \
 		-lusgx-normal \
+		-lsgx_usgxssl \
 		-l$(SGX_URTS) -l$(SGX_UAE_SERVICE) \
 		-lpthread -lc -ldl
 
 APP_CFLAGS := $(CFLAGS) \
+		-fPIC -Wno-attributes \
 		-I$(USGX_HOME)/include \
 		-I$(IPAS_ATTESTATION_LIB)/include \
 		-I$(FOOSSL_INCLUDE) \
-		-I$(SGX_SDK)/include -fPIC -Wno-attributes
+		-I$(SGX_SSL)/include \
+		-I$(SGX_SDK)/include
 APP_LDFLAGS := \
 		-L$(USGX_HOME) \
 		-L$(IPAS_ATTESTATION_LIB) \
-		-L$(IPAS_LIB_DIR) -L$(FOOSSL_LIBRARY) -L$(SGX_SDK)/lib64
+		-L$(IPAS_LIB_DIR) \
+		-L$(FOOSSL_LIBRARY) \
+		-L$(SGX_SSL)/lib64 \
+		-L$(SGX_SDK)/lib64
 		#-Wl,-rpath,$(SGX_SDK)/sdk_libs,--disable-new-dtags
 ifeq ($(SGX_MODE),HW)
 APP_LDLIBS := \
 		-lipas-attestation-normal \
 		-lipas-sealing-normal \
 		-lusgx-normal \
+		-lsgx_usgxssl \
 		-lfoossl_client -lfoossl_common \
 		-l$(SGX_URTS) -l$(SGX_LAUNCH) -l$(SGX_EPID) \
 		-lssl -lcrypto \
@@ -195,6 +206,7 @@ APP_LDLIBS := \
 		-lipas-attestation-normal \
 		-lipas-sealing-normal \
 		-lusgx-normal \
+		-lsgx_usgxssl \
 		-lfoossl_client -lfoossl_common \
 		-l$(SGX_URTS) -l$(SGX_UAE_SERVICE) \
 		-lssl -lcrypto \
@@ -262,7 +274,9 @@ deltls:
 enclave_t.c enclave_t.h: enclave.edl
 	@$(EDGER) --trusted enclave.edl \
 			--search-path $(USGX_HOME)/include \
-			--search-path $(IPAS_ATTESTATION_LIB)/include
+			--search-path $(IPAS_ATTESTATION_LIB)/include \
+			--search-path $(SGX_SSL)/include \
+			--search-path $(SGX_SDK)/include
 	$(info [  GEN   ] $^  >  $@)
 
 enclave_t.o: enclave_t.c
@@ -288,7 +302,9 @@ $(TLIB): enclave.so enclave.config.xml $(KEY_PR)
 enclave_u.c enclave_u.h: enclave.edl
 	@$(EDGER) --untrusted $< \
 			--search-path $(USGX_HOME)/include \
-			--search-path $(IPAS_ATTESTATION_LIB)/include
+			--search-path $(IPAS_ATTESTATION_LIB)/include \
+			--search-path $(SGX_SSL)/include \
+			--search-path $(SGX_SDK)/include
 	$(info [  GEN   ] $^  >  $@)
 
 enclave_u.o: enclave_u.c enclave_u.h
@@ -316,7 +332,9 @@ $(ULIB): $(ULIB_OBJS)
 enclave_u.c enclave_u.h: enclave.edl
 	@$(EDGER) --untrusted $< \
 			--search-path $(USGX_HOME)/include \
-			--search-path $(IPAS_ATTESTATION_LIB)/include
+			--search-path $(IPAS_ATTESTATION_LIB)/include \
+			--search-path $(SGX_SSL)/include \
+			--search-path $(SGX_SDK)/include
 	$(info [  GEN   ] $^  >  $@)
 
 enclave_u.o: enclave_u.c enclave_u.h

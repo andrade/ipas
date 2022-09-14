@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -9,8 +10,49 @@
 #include <sgx_tcrypto.h>
 #include <sgx_utils.h>
 
-#include "ipas/t/attestation.h"
+#include <usgx/libc/stdio.h>
+
+#include "ipas/debug.h"
 #include "ipas/errors.h"
+#include "ipas/t/attestation.h"
+
+#include "cdecode.h"
+#include "perdec.h"
+#include "x509.h"
+
+/** Attestation Report Signing CA Certificate given by Intel. */
+static const char ROOT[] =
+		"-----BEGIN CERTIFICATE-----\n"
+		"MIIFSzCCA7OgAwIBAgIJANEHdl0yo7CUMA0GCSqGSIb3DQEBCwUAMH4xCzAJBgNV\n"
+		"BAYTAlVTMQswCQYDVQQIDAJDQTEUMBIGA1UEBwwLU2FudGEgQ2xhcmExGjAYBgNV\n"
+		"BAoMEUludGVsIENvcnBvcmF0aW9uMTAwLgYDVQQDDCdJbnRlbCBTR1ggQXR0ZXN0\n"
+		"YXRpb24gUmVwb3J0IFNpZ25pbmcgQ0EwIBcNMTYxMTE0MTUzNzMxWhgPMjA0OTEy\n"
+		"MzEyMzU5NTlaMH4xCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJDQTEUMBIGA1UEBwwL\n"
+		"U2FudGEgQ2xhcmExGjAYBgNVBAoMEUludGVsIENvcnBvcmF0aW9uMTAwLgYDVQQD\n"
+		"DCdJbnRlbCBTR1ggQXR0ZXN0YXRpb24gUmVwb3J0IFNpZ25pbmcgQ0EwggGiMA0G\n"
+		"CSqGSIb3DQEBAQUAA4IBjwAwggGKAoIBgQCfPGR+tXc8u1EtJzLA10Feu1Wg+p7e\n"
+		"LmSRmeaCHbkQ1TF3Nwl3RmpqXkeGzNLd69QUnWovYyVSndEMyYc3sHecGgfinEeh\n"
+		"rgBJSEdsSJ9FpaFdesjsxqzGRa20PYdnnfWcCTvFoulpbFR4VBuXnnVLVzkUvlXT\n"
+		"L/TAnd8nIZk0zZkFJ7P5LtePvykkar7LcSQO85wtcQe0R1Raf/sQ6wYKaKmFgCGe\n"
+		"NpEJUmg4ktal4qgIAxk+QHUxQE42sxViN5mqglB0QJdUot/o9a/V/mMeH8KvOAiQ\n"
+		"byinkNndn+Bgk5sSV5DFgF0DffVqmVMblt5p3jPtImzBIH0QQrXJq39AT8cRwP5H\n"
+		"afuVeLHcDsRp6hol4P+ZFIhu8mmbI1u0hH3W/0C2BuYXB5PC+5izFFh/nP0lc2Lf\n"
+		"6rELO9LZdnOhpL1ExFOq9H/B8tPQ84T3Sgb4nAifDabNt/zu6MmCGo5U8lwEFtGM\n"
+		"RoOaX4AS+909x00lYnmtwsDVWv9vBiJCXRsCAwEAAaOByTCBxjBgBgNVHR8EWTBX\n"
+		"MFWgU6BRhk9odHRwOi8vdHJ1c3RlZHNlcnZpY2VzLmludGVsLmNvbS9jb250ZW50\n"
+		"L0NSTC9TR1gvQXR0ZXN0YXRpb25SZXBvcnRTaWduaW5nQ0EuY3JsMB0GA1UdDgQW\n"
+		"BBR4Q3t2pn680K9+QjfrNXw7hwFRPDAfBgNVHSMEGDAWgBR4Q3t2pn680K9+Qjfr\n"
+		"NXw7hwFRPDAOBgNVHQ8BAf8EBAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIBADANBgkq\n"
+		"hkiG9w0BAQsFAAOCAYEAeF8tYMXICvQqeXYQITkV2oLJsp6J4JAqJabHWxYJHGir\n"
+		"IEqucRiJSSx+HjIJEUVaj8E0QjEud6Y5lNmXlcjqRXaCPOqK0eGRz6hi+ripMtPZ\n"
+		"sFNaBwLQVV905SDjAzDzNIDnrcnXyB4gcDFCvwDFKKgLRjOB/WAqgscDUoGq5ZVi\n"
+		"zLUzTqiQPmULAQaB9c6Oti6snEFJiCQ67JLyW/E83/frzCmO5Ru6WjU4tmsmy8Ra\n"
+		"Ud4APK0wZTGtfPXU7w+IBdG5Ez0kE1qzxGQaL4gINJ1zMyleDnbuS8UicjJijvqA\n"
+		"152Sq049ESDz+1rRGc2NVEqh1KaGXmtXvqxXcTB+Ljy5Bw2ke0v8iGngFBPqCTVB\n"
+		"3op5KBG3RjbF6RRSzwzuWfL7QErNC8WEy5yDVARzTA5+xmBc388v9Dm21HGfcC8O\n"
+		"DD+gT9sSpssq0ascmvH49MOgjt1yoysLtdCtJW/9FZpoOypaHx0R+mJTLwPXVMrv\n"
+		"DaVzWh5aiEx+idkSGMnX\n"
+		"-----END CERTIFICATE-----\n";
 
 
 // ------------------ Internal structure for contexts ------------------
@@ -54,6 +96,16 @@ static uint32_t get_max_sessions()
 
 // ---------------------------------------------------------------------
 
+// output should be large enough to accomodate the decoded input
+// returns the length of the output
+static int base64_decode(char *output, const char *input, int length)
+{
+	assert(output && input);
+
+	base64_decodestate s;
+	base64_init_decodestate(&s);
+	return base64_decode_block(input, length, output, &s);
+}
 
 // void usgx_ecall_dummy()
 // {
@@ -461,6 +513,58 @@ int ipas_ma_validate_reports(uint32_t sid,
 		uint32_t status_a, char *rid_a, char *sig_a, char *cc_a, char *report_a,
 		uint32_t status_b, char *rid_b, char *sig_b, char *cc_b, char *report_b)
 {
+	LOG("Response status A: %"PRIu32"\n", status_a);
+	LOG("Response status B: %"PRIu32"\n", status_b);
+	LOG("Request ID A: %s\n", rid_a);
+	LOG("Request ID B: %s\n", rid_b);
+	LOG("Signature over A's report (base64): %s\n", sig_a);
+	LOG("Signature over B's report (base64): %s\n", sig_b);
+	LOG("Certificate chain of A (url-encoded): %s\n", cc_a);
+	LOG("Certificate chain of B (url-encoded): %s\n", cc_b);
+
+
+	percent_decode(cc_a, cc_a);
+	percent_decode(cc_b, cc_b);
+
+	if (verify_cert(ROOT, strlen(ROOT), cc_a, strlen(cc_a))) {
+		LOG("Invalid initiator certificate chain ✗\n");
+		return 1;
+	}
+	LOG("Validated initiator certificate chain ✓\n");
+
+	if (verify_cert(ROOT, strlen(ROOT), cc_b, strlen(cc_b))) {
+		LOG("Invalid responder certificate chain ✗\n");
+		return 2;
+	}
+	LOG("Validated responder certificate chain ✓\n");
+
+
+	char signature[1024]; // decoded signature
+	int siglen;
+	int r;
+
+	siglen = base64_decode(signature, sig_a, strlen(sig_a));
+	r = verify_sig(cc_a, strlen(cc_a), signature, siglen, report_a, strlen(report_a));
+	if (r) {
+		if (r == 11) {
+			LOG("Invalid initiator signature ✗\n");
+			return 11; // TODO bad sig IPAS code
+		}
+		return IPAS_FAILURE;
+	}
+	LOG("Verified initiator signature over report ✓\n");
+
+	siglen = base64_decode(signature, sig_b, strlen(sig_b));
+	r = verify_sig(cc_b, strlen(cc_b), signature, siglen, report_b, strlen(report_b));
+	if (r) {
+		if (r == 11) {
+			LOG("Invalid responder signature ✗\n");
+			return 11; // TODO bad sig IPAS code
+		}
+		return IPAS_FAILURE;
+	}
+	LOG("Verified responder signature over report ✓\n");
+
 	// TEMP Estou a usar aqui GROUP_OUT_OF_DATE por causa do meu processador.
 	// TEMP Mas devia ser apenas "OK" para máxima segurança. Fazer em baixo.
 #if 0
