@@ -17,6 +17,7 @@
 #include "ipas/t/attestation.h"
 
 #include "cdecode.h"
+#include "cJSON.h"
 #include "perdec.h"
 #include "x509.h"
 
@@ -508,6 +509,36 @@ ipas_status ipas_ma_create_report(sgx_report_t *report, uint32_t sid, sgx_target
 
 
 
+// Returns zero on success (when the report is valid); or non-zero otherwise.
+static int validate_report(const char *report)
+{
+	cJSON *json = cJSON_Parse(report);
+	if (!json) {
+		LOG("Error: parsing JSON in report\n");
+		return IPAS_FAILURE;
+	}
+
+	const cJSON *json_eqs = cJSON_GetObjectItemCaseSensitive(json, "isvEnclaveQuoteStatus");
+	if (!cJSON_IsString(json_eqs) || !json_eqs->valuestring) {
+		cJSON_Delete(json);
+		return IPAS_FAILURE;
+	}
+	const char *eqs = json_eqs->valuestring;
+	LOG("Report.isvEnclaveQuoteStatus: %s\n", eqs);
+	// TEMP Estou a usar GROUP_OUT_OF_DATE por causa do meu processador.
+	//      Mas devia ser apenas OK.
+	if (strcmp(eqs, "OK") && strcmp(eqs, "GROUP_OUT_OF_DATE")) {
+	// if (strcmp(eqs, "OK")) {
+		cJSON_Delete(json);
+		// Bad enclave quote status, terminate.
+		// Could use enum so caller knows the problem. But caller can also check structure for "OK" even before sending in here.
+		return 1; // IPAS error code. Invalid one or new?
+	}
+
+	cJSON_Delete(json);
+	return IPAS_SUCCESS;
+}
+
 // TODO Tem de receber todo o body da request para poder calcular a assinatura sobre tudo. E é preciso receber também certificates, signature, etc. Portanto preciso funções para parsing que funcionem dentro do enclave (já uso jansson mas no exterior). Declaração da função neste momento está incompleta, mas é para ter a flow funcional.
 int ipas_ma_validate_reports(uint32_t sid,
 		uint32_t status_a, char *rid_a, char *sig_a, char *cc_a, char *report_a,
@@ -517,10 +548,12 @@ int ipas_ma_validate_reports(uint32_t sid,
 	LOG("Response status B: %"PRIu32"\n", status_b);
 	LOG("Request ID A: %s\n", rid_a);
 	LOG("Request ID B: %s\n", rid_b);
-	LOG("Signature over A's report (base64): %s\n", sig_a);
-	LOG("Signature over B's report (base64): %s\n", sig_b);
-	LOG("Certificate chain of A (url-encoded): %s\n", cc_a);
-	LOG("Certificate chain of B (url-encoded): %s\n", cc_b);
+	// LOG("Signature over A's report (base64): %s\n", sig_a);
+	// LOG("Signature over B's report (base64): %s\n", sig_b);
+	// LOG("Certificate chain of A (url-encoded): %s\n", cc_a);
+	// LOG("Certificate chain of B (url-encoded): %s\n", cc_b);
+	// LOG("AReport (%zu): %s\n", strlen(report_a), report_a);
+	// LOG("BReport (%zu): %s\n", strlen(report_b), report_b);
 
 
 	percent_decode(cc_a, cc_a);
@@ -565,16 +598,17 @@ int ipas_ma_validate_reports(uint32_t sid,
 	}
 	LOG("Verified responder signature over report ✓\n");
 
-	// TEMP Estou a usar aqui GROUP_OUT_OF_DATE por causa do meu processador.
-	// TEMP Mas devia ser apenas "OK" para máxima segurança. Fazer em baixo.
-#if 0
-	if (!(strcmp(eqs_a, "OK") || strcmp(eqs_a, "GROUP_OUT_OF_DATE"))) {
-	// if (strcmp(eqs_a, "OK")) {
-		// Bad enclave quote status, terminate.
-		// Could use enum so caller knows the problem. But caller can also check structure for "OK" even before sending in here.
+	if (validate_report(report_a)) {
+		LOG("AReport is invalid ✗\n");
 		return 1;
 	}
-#endif
+	LOG("AReport is valid ✓\n");
+
+	if (validate_report(report_b)) {
+		LOG("BReport is invalid ✗\n");
+		return 1;
+	}
+	LOG("BReport is valid ✓\n");
 
 	// Verify IAS signature over entire body of HTTP response
 

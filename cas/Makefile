@@ -93,6 +93,7 @@ src/t/attestation_t.c src/t/attestation_t.h: include/ipas/attestation.edl
 
 src/t/attestation.o: src/t/attestation_t.h
 src/t/cdecode.o: src/t/cdecode.h
+src/t/cJSON.o: src/t/cJSON.h
 src/t/perdec.o: src/t/perdec.h
 src/t/x509.o: src/t/x509.h
 
@@ -100,7 +101,7 @@ src/t/%.o: src/t/%.c
 	@$(CC) $(TLIB_CFLAGS) -c $< -o $@
 	@echo "CC    ·  $^  >  $@"
 
-libipas-attestation-secure.a: src/t/attestation.o src/t/attestation_t.o src/t/cdecode.o src/t/perdec.o src/t/x509.o
+libipas-attestation-secure.a: src/t/attestation.o src/t/attestation_t.o src/t/cdecode.o src/t/cJSON.o src/t/perdec.o src/t/x509.o
 	@ar rcs $@ $^
 	$(call GOOD,,"GEN   ·  ","$^  >  $@")
 
@@ -125,7 +126,7 @@ TRASH := \
 		libipas-attestation-normal.a \
 		src/t/attestation_t.h src/t/attestation_t.c src/t/attestation_t.o \
 		src/t/attestation.o \
-		src/t/cdecode.o src/t/perdec.o src/t/x509.o \
+		src/t/cdecode.o src/t/cJSON.o src/t/perdec.o src/t/x509.o \
 		libipas-attestation-secure.a
 
 clean:
