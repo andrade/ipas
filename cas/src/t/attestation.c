@@ -71,6 +71,8 @@ struct {
 
 	sgx_ec256_public_t peer_pub;        // public key of peer
 
+	sgx_measurement_t mr_enc;
+	sgx_measurement_t mr_sig;
 	sgx_report_data_t rd;               // hash(ipub||rpub||VK)
 
 	sgx_cmac_128bit_key_t kdk;          // key derivation key, shared
@@ -455,6 +457,12 @@ ipas_status ipas_ma_create_report(sgx_report_t *report, uint32_t sid, sgx_target
 		return IPAS_FAILURE;
 	}
 
+	// save measurements internally
+	memcpy(&session[sid].mr_enc, &report->body.mr_enclave,
+			sizeof(sgx_measurement_t));
+	memcpy(&session[sid].mr_sig, &report->body.mr_signer,
+			sizeof(sgx_measurement_t));
+
 	return IPAS_SUCCESS;
 }
 
@@ -577,12 +585,40 @@ static int validate_report(const char *report, uint32_t sid)
 				&quote.report_body.report_data,
 				sizeof(sgx_report_data_t), NULL));
 
-		// ensure report data is correct
-		sgx_report_data_t *original = &session[sid].rd;
-		sgx_report_data_t *received = &quote.report_body.report_data;
-		if (memcmp(original, received, sizeof(sgx_report_data_t))) {
-			cJSON_Delete(json);
-			return IPAS_BAD_RD;
+		{
+			// ensure report data is correct
+			sgx_report_data_t *original = &session[sid].rd;
+			sgx_report_data_t *received = &quote.report_body.report_data;
+			if (memcmp(original, received, sizeof(sgx_report_data_t))) {
+				cJSON_Delete(json);
+				return IPAS_BAD_RD;
+			}
+		}
+
+		{
+			// compare MRENCLAVE
+			sgx_measurement_t *original = &session[sid].mr_enc;
+			sgx_measurement_t *received = &quote.report_body.mr_enclave;
+			if (memcmp(original, received, sizeof(sgx_measurement_t))) {
+				cJSON_Delete(json);
+				return 1;
+			}
+			LOG("MRENCLAVE: %s\n", b2s(buffer, sizeof(buffer),
+					&quote.report_body.mr_enclave,
+					sizeof(sgx_measurement_t), NULL));
+		}
+
+		{
+			// compare MRSIGNER
+			sgx_measurement_t *original = &session[sid].mr_sig;
+			sgx_measurement_t *received = &quote.report_body.mr_signer;
+			if (memcmp(original, received, sizeof(sgx_measurement_t))) {
+				cJSON_Delete(json);
+				return 1;
+			}
+			LOG("MRSIGNER: %s\n", b2s(buffer, sizeof(buffer),
+					&quote.report_body.mr_signer,
+					sizeof(sgx_measurement_t), NULL));
 		}
 	}
 
