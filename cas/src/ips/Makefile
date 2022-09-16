@@ -21,6 +21,9 @@ $(info [SGX_DEBUG] "$(SGX_DEBUG)")
 USGX_HOME ?= $(HOME)/vc/usgx
 $(info [USGX_HOME] "$(USGX_HOME)")
 
+IPAS_STRICT_MR ?= 0
+$(info [STRICT_MR] "$(IPAS_STRICT_MR)")
+
 define GOOD
 	@echo -n $1
 	@tput setaf 6
@@ -41,6 +44,12 @@ $(info ------------------------------------------------------------------------)
 
 CPPFLAGS := -I$(IPAS_HOME)/include -I$(USGX_HOME)/include
 CFLAGS := -m64 -Wall -Wextra -std=c11
+
+ifeq ($(IPAS_STRICT_MR),1)
+	CPPFLAGS += -DIPAS_STRICT_MR
+else
+	CPPFLAGS += -UIPAS_STRICT_MR
+endif
 
 ifeq ($(SGX_DEBUG),1)
 	CFLAGS += -Og -g

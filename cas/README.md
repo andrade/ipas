@@ -14,6 +14,8 @@
 
 NOTE: IPS is independent of the rest so must be compiled and cleaned on its own.
 
+Compile IPS with `$ make IPAS_STRICT_MR=1` to bind the sealing key to MRENCLAVE (default off, binds to MRSIGNER).
+
 ### Installing
 
 TODO

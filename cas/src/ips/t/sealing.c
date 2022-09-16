@@ -15,9 +15,10 @@
 #include <sgx_tseal.h>
 #include <sgx_utils.h>
 
+#include "ipas/debug.h"
+#include "ipas/errors.h"
 #include "ipas/t/attestation.h"
 #include "ipas/t/sealing.h"
-#include "ipas/errors.h"
 
 /** Length in bytes of part of ipas_seal_data to use as part of AD. **/
 static const uint32_t const SD_FIRST_BLOCK = 692;
@@ -167,9 +168,19 @@ ipas_status ipas_s_process_m1(
 	if (*size > 640) {
 		return IPAS_CAPACITY;
 	}
-	if (sgx_seal_data(0, NULL, 16, key, *size, data)) {
+#ifdef IPAS_STRICT_MR
+	sgx_status_t ss = sgx_seal_data_ex(SGX_KEYPOLICY_MRENCLAVE,
+			(sgx_attributes_t){.flags=0xFF0000000000000B, .xfrm=0xF0000000},
+			0xF0000000,
+			0, NULL, 16, key, *size, data);
+#else
+	sgx_status_t ss = sgx_seal_data(0, NULL, 16, key, *size, data);
+#endif
+	if (ss) {
+		LOG("Error: sealing data=%#x\n", ss);
 		return IPAS_FAILURE;
 	}
+	LOG("Sealed client data\n");
 
 	// compute MAC over nonce||data but no need to send nonce, A already has it
 	sgx_cmac_128bit_key_t *cmac_key = ipas_ma_get_key(sid, 1);
@@ -334,9 +345,12 @@ ipas_status ipas_u_process_m1(
 	// We don't compute required buffer length because this is already known
 	uint8_t plaintext[16] = {0};
 	uint32_t length = 16;
-	if (sgx_unseal_data(data, NULL, 0, plaintext, &length)) {
+	sgx_status_t ss = sgx_unseal_data(data, NULL, 0, plaintext, &length);
+	if (ss) {
+		LOG("Error: sgx_unseal_data=%#x\n", ss);
 		return IPAS_FAILURE;
 	}
+	LOG("Unsealed client data\n");
 	// First 16 bytes of plaintext are for return ANonce, second 16 bytes for K.
 	// memcpy(plaintext, nonce, 16);
 
