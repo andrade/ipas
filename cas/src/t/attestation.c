@@ -118,7 +118,7 @@ static int base64_decode(char *output, const char *input, int length)
 
 void *ipas_ma_get_key(uint32_t sid, int key_id)
 {
-	if (sid > get_max_sessions()) {
+	if (sid >= get_max_sessions()) {
 		return NULL;
 	}
 
@@ -183,7 +183,7 @@ int ipas_ma(uint8_t mk[static 16], uint8_t sk[static 16])
 // **/
 // ipas_status ipa_m67(uint32_t sid, sgx_ec256_public_t *pub, uint8_t nonce[16])
 // {
-// 	if (sid > get_max_sessions()) {
+// 	if (sid >= get_max_sessions()) {
 // 		return IPAS_BAD_SID;
 // 	}
 //
@@ -225,7 +225,7 @@ int ipas_ma(uint8_t mk[static 16], uint8_t sk[static 16])
 // **/
 // ipas_status ipa_m89(uint32_t sid, sgx_target_info_t *qe_target_info, sgx_ec256_public_t *pub, uint8_t nonce[16], sgx_report_t *report)
 // {
-// 	if (sid > get_max_sessions()) {
+// 	if (sid >= get_max_sessions()) {
 // 		return IPAS_BAD_SID;
 // 	}
 //
@@ -275,7 +275,7 @@ int ipas_ma(uint8_t mk[static 16], uint8_t sk[static 16])
 **/
 ipas_status ipas_ma_create_keys(sgx_ec256_public_t *pub, uint8_t *nonce, uint32_t sid, int role)
 {
-	if (sid > get_max_sessions()) {
+	if (sid >= get_max_sessions()) {
 		return IPAS_BAD_SID;
 	}
 
@@ -439,7 +439,7 @@ static int compute_report_data(sgx_report_data_t *report_data, uint32_t sid)
 **/
 ipas_status ipas_ma_create_report(sgx_report_t *report, uint32_t sid, sgx_target_info_t *qe_target_info, sgx_ec256_public_t *peer_pub)
 {
-	if (sid > get_max_sessions()) {
+	if (sid >= get_max_sessions()) {
 		return IPAS_BAD_SID;
 	}
 
@@ -464,7 +464,7 @@ ipas_status ipas_ma_create_report(sgx_report_t *report, uint32_t sid, sgx_target
 // // get report
 // int ipa_m1112(uint32_t sid, sgx_target_info_t *qe_target_info, uint8_t nonce[16], sgx_report_t *report)
 // {
-// 	if (sid > get_max_sessions()) {
+// 	if (sid >= get_max_sessions()) {
 // 		return IPAS_BAD_SID;
 // 	}
 //
@@ -719,7 +719,7 @@ static int compute_shared_secret_keys(uint32_t sid)
 **/
 ipas_status ipas_ma_prepare_m4(uint32_t sid, uint8_t *data, uint8_t *tag)
 {
-	if (sid > get_max_sessions()) {
+	if (sid >= get_max_sessions()) {
 		return IPAS_BAD_SID;
 	}
 
@@ -769,7 +769,7 @@ ipas_status ipas_ma_prepare_m4(uint32_t sid, uint8_t *data, uint8_t *tag)
 **/
 ipas_status ipas_ma_process_m4(uint32_t sid, uint8_t *data, uint8_t *tag)
 {
-	if (sid > get_max_sessions()) {
+	if (sid >= get_max_sessions()) {
 		return IPAS_BAD_SID;
 	}
 
