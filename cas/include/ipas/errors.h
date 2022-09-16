@@ -18,6 +18,8 @@ typedef enum {
 	// IPAS_COUNT              =  8,
 	// IPAS_SIZE              =  8,
 	IPAS_NO_KEY                 =  9,
+	IPAS_BAD_RD                 =  10,  // report data mismatch
+	IPAS_BAD_QUOTE_STATUS       =  11,  // unacceptable enclave quote status
 
 	// IPAS_MA_SUCCESS             = 0,
 	// IPAS_MA_FAILURE             = 1,

@@ -6,10 +6,12 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <sgx_quote.h>
 #include <sgx_trts.h>
 #include <sgx_tcrypto.h>
 #include <sgx_utils.h>
 
+#include <usgx/c/bytes.h>
 #include <usgx/libc/stdio.h>
 
 #include "ipas/debug.h"
@@ -68,6 +70,8 @@ struct {
 	uint8_t nonce[16];                  // my nonce
 
 	sgx_ec256_public_t peer_pub;        // public key of peer
+
+	sgx_report_data_t rd;               // hash(ipub||rpub||VK)
 
 	sgx_cmac_128bit_key_t kdk;          // key derivation key, shared
 	sgx_cmac_128bit_key_t smk;
@@ -442,13 +446,12 @@ ipas_status ipas_ma_create_report(sgx_report_t *report, uint32_t sid, sgx_target
 	// save peer public key internally
 	memcpy(&session[sid].peer_pub, peer_pub, sizeof(*peer_pub));
 
-	sgx_report_data_t report_data = {0};
-	int r = compute_report_data(&report_data, sid);
+	int r = compute_report_data(&session[sid].rd, sid);
 	if (r) {
 		return IPAS_FAILURE;
 	}
 
-	if (sgx_create_report(qe_target_info, &report_data, report)) {
+	if (sgx_create_report(qe_target_info, &session[sid].rd, report)) {
 		return IPAS_FAILURE;
 	}
 
@@ -509,37 +512,103 @@ ipas_status ipas_ma_create_report(sgx_report_t *report, uint32_t sid, sgx_target
 
 
 
-// Returns zero on success (when the report is valid); or non-zero otherwise.
-static int validate_report(const char *report)
+/**
+** Validates fields of a single report from IAS.
+**
+** [i]  report:         report received from IAS
+** [i]  sid:            Session ID
+**
+** Returns zero on success (when the report is valid), or non-zero otherwise.
+** Status: IPAS_SUCCESS       all good
+**         IPAS_BAD_QUOTE_STATUS unacceptable enclave quote status
+**         IPAS_BAD_RD        report data received does not match original one
+**         IPAS_FAILURE       internal error
+**/
+static int validate_report(const char *report, uint32_t sid)
 {
+	assert(sid < get_max_sessions());
+
+	char buffer[2048];
+
 	cJSON *json = cJSON_Parse(report);
 	if (!json) {
 		LOG("Error: parsing JSON in report\n");
 		return IPAS_FAILURE;
 	}
 
-	const cJSON *json_eqs = cJSON_GetObjectItemCaseSensitive(json, "isvEnclaveQuoteStatus");
-	if (!cJSON_IsString(json_eqs) || !json_eqs->valuestring) {
-		cJSON_Delete(json);
-		return IPAS_FAILURE;
+	{
+		const cJSON *json_eqs = cJSON_GetObjectItemCaseSensitive(json,
+				"isvEnclaveQuoteStatus");
+		if (!cJSON_IsString(json_eqs) || !json_eqs->valuestring) {
+			cJSON_Delete(json);
+			return IPAS_FAILURE;
+		}
+		const char *eqs = json_eqs->valuestring;
+		LOG("Report.isvEnclaveQuoteStatus: %s\n", eqs);
+
+		// TEMP Estou a usar GROUP_OUT_OF_DATE por causa do meu processador.
+		//      Mas devia ser apenas OK.
+		if (strcmp(eqs, "OK") && strcmp(eqs, "GROUP_OUT_OF_DATE")) {
+		// if (strcmp(eqs, "OK")) {
+			cJSON_Delete(json);
+			return IPAS_BAD_QUOTE_STATUS;
+		}
 	}
-	const char *eqs = json_eqs->valuestring;
-	LOG("Report.isvEnclaveQuoteStatus: %s\n", eqs);
-	// TEMP Estou a usar GROUP_OUT_OF_DATE por causa do meu processador.
-	//      Mas devia ser apenas OK.
-	if (strcmp(eqs, "OK") && strcmp(eqs, "GROUP_OUT_OF_DATE")) {
-	// if (strcmp(eqs, "OK")) {
-		cJSON_Delete(json);
-		// Bad enclave quote status, terminate.
-		// Could use enum so caller knows the problem. But caller can also check structure for "OK" even before sending in here.
-		return 1; // IPAS error code. Invalid one or new?
+
+	{
+		const cJSON *json_eqb = cJSON_GetObjectItemCaseSensitive(json,
+				"isvEnclaveQuoteBody");
+		if (!cJSON_IsString(json_eqb) || !json_eqb->valuestring) {
+			cJSON_Delete(json);
+			return IPAS_FAILURE;
+		}
+		const char *eqb = json_eqb->valuestring;
+		// LOG("eqb (base64): %s\n", eqb);
+
+		char body[1024];
+		int len = base64_decode(body, eqb, strlen(eqb));
+		// LOG("eqb: %s\n", b2s(buffer, sizeof(buffer), body, len, NULL));
+
+		sgx_quote_t quote = {0};
+		memcpy(&quote, body, len);
+		LOG("GID: %s LE\n", b2s(buffer, sizeof(buffer),
+				&quote.epid_group_id, sizeof(sgx_epid_group_id_t), NULL));
+		LOG("RD: %s\n", b2s(buffer, sizeof(buffer),
+				&quote.report_body.report_data,
+				sizeof(sgx_report_data_t), NULL));
+
+		// ensure report data is correct
+		sgx_report_data_t *original = &session[sid].rd;
+		sgx_report_data_t *received = &quote.report_body.report_data;
+		if (memcmp(original, received, sizeof(sgx_report_data_t))) {
+			cJSON_Delete(json);
+			return IPAS_BAD_RD;
+		}
 	}
 
 	cJSON_Delete(json);
 	return IPAS_SUCCESS;
 }
 
-// TODO Tem de receber todo o body da request para poder calcular a assinatura sobre tudo. E é preciso receber também certificates, signature, etc. Portanto preciso funções para parsing que funcionem dentro do enclave (já uso jansson mas no exterior). Declaração da função neste momento está incompleta, mas é para ter a flow funcional.
+/**
+** Verifies IAS signature and validates reports.
+**
+** During attestation the IAS returns a signed AVR (Attestation
+** Verification Report). This function validates the certificate
+** chain and ensures its trust anchor is correct; verifies the
+** IAS signature over the report; and validates the report fields.
+** This is done for the reports of both initiator and responder.
+**
+** [i]  sid:            Session ID
+**
+** Returns zero on success (when validation is OK), or non-zero otherwise.
+** Status: IPAS_SUCCESS       all good
+**         IPAS_BAD_SID       Session ID out of bounds
+**         IPAS_BAD_SIG       invalid signature over report
+**         IPAS_BAD_QUOTE_STATUS unacceptable enclave quote status
+**         IPAS_BAD_RD        report data received does not match original one
+**         IPAS_FAILURE       internal error
+**/
 int ipas_ma_validate_reports(uint32_t sid,
 		uint32_t status_a, char *rid_a, char *sig_a, char *cc_a, char *report_a,
 		uint32_t status_b, char *rid_b, char *sig_b, char *cc_b, char *report_b)
@@ -585,7 +654,7 @@ int ipas_ma_validate_reports(uint32_t sid,
 	if (r) {
 		if (r == 11) {
 			LOG("Invalid initiator signature ✗\n");
-			return 11; // TODO bad sig IPAS code
+			return IPAS_BAD_SIG;
 		}
 		return IPAS_FAILURE;
 	}
@@ -596,38 +665,23 @@ int ipas_ma_validate_reports(uint32_t sid,
 	if (r) {
 		if (r == 11) {
 			LOG("Invalid responder signature ✗\n");
-			return 11; // TODO bad sig IPAS code
+			return IPAS_BAD_SIG;
 		}
 		return IPAS_FAILURE;
 	}
 	LOG("Verified responder signature over report ✓\n");
 
-	if (validate_report(report_a)) {
+	if (r = validate_report(report_a, sid)) {
 		LOG("AReport is invalid ✗\n");
-		return 1;
+		return r;
 	}
 	LOG("AReport is valid ✓\n");
 
-	if (validate_report(report_b)) {
+	if (r = validate_report(report_b, sid)) {
 		LOG("BReport is invalid ✗\n");
-		return 1;
+		return r;
 	}
 	LOG("BReport is valid ✓\n");
-
-	// Verify IAS signature over entire body of HTTP response
-
-	// Extract isvEnclaveQuote and check for match with OK
-	// Aquilo que faço agora logo no início, mas isto pode ser feito no exterior, e aqui é apenas confirmação pelo IPAS TC
-
-	// Verify user data matches what was initially sent (both public keys)
-
-	// Compute MK, SK
-	// Fazer isto agora, ou esperar até resposta de B?
-	// Caso espere até resposta de B, tenho que voltar a validar tudo?
-
-	// Wrap up: Depois de tudo feito, fazer flip a um bool qualquer que indica que foi tudo validado e verificado, e que as chaves foram computadas.
-	// Chaves podem estar estrutura DS se houver suporte multi-sessão, ou então podem ser variáveis globais.
-	// NOTE Fazer bit flip de tudo feito apenas com conclude, até lá não sabemos se resposta de B teve sucesso ou não. Por outro lado, bit flip de checks pode ser flipped, mas de B response não... E assim espera-se para verificar ambos os bits and de avançar com comunicação.
 
 	session[sid].are_reports_ok = true;
 
