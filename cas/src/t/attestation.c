@@ -544,6 +544,10 @@ int ipas_ma_validate_reports(uint32_t sid,
 		uint32_t status_a, char *rid_a, char *sig_a, char *cc_a, char *report_a,
 		uint32_t status_b, char *rid_b, char *sig_b, char *cc_b, char *report_b)
 {
+	if (sid >= get_max_sessions()) {
+		return IPAS_BAD_SID;
+	}
+
 	LOG("Response status A: %"PRIu32"\n", status_a);
 	LOG("Response status B: %"PRIu32"\n", status_b);
 	LOG("Request ID A: %s\n", rid_a);
