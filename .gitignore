@@ -11,5 +11,5 @@
 
 **/*.sd
 
-ipas-css/css
-ipas-app-hello/hello
+css/css
+sample/hello/hello

@@ -40,7 +40,7 @@ int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, 
 	ia->eid = eid;
 	if (role == ROLE_RESPONDER) {
 		dlerror();
-		ia->udso = dlopen("/home/daniel/w/main/20A1/vc/ipas/ipas-css/temp_untrusted.so", RTLD_NOW);
+		ia->udso = dlopen("../css/temp_untrusted.so", RTLD_NOW);
 		// FIXME responder deve passar library para aqui, se assim se justificar
 		if (!ia->udso) {
 			LOG("Error: dlopening untrusted code shared object (%s)\n", dlerror());

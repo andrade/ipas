@@ -10,13 +10,6 @@ SGX_SSL ?= $(HOME)/.local/lib/x86_64-linux-gnu/sgxssl
 $(info [ SGX_DIR] "$(SGX_SDK)")
 $(info [ SSL_DIR] "$(SGX_SSL)")
 
-IPAS_ATTESTATION_LIB ?=
-ifndef IPAS_ATTESTATION_LIB
-$(error IPAS_ATTESTATION_LIB is not set)
-endif
-$(info [IPAS_ATT] "$(IPAS_ATTESTATION_LIB)")
-# FIXME provavelmente remover depois de reestruturar repositório ipas-lib
-
 # root dir pode vir de variável, ou de ficheiro buildenv.mk na root?
 IPAS_HOME ?=
 ifndef IPAS_HOME
@@ -25,9 +18,6 @@ endif
 $(info [  HOME  ] "$(IPAS_HOME)")
 IPAS_LIB_DIR := $(IPAS_HOME)/lib
 IPAS_INC_DIR := $(IPAS_HOME)/include
-# IPAS_SRC_DIR
-# IPAS_INC_DIR
-# FIXME depois de reestruturar repositório ipas-lib
 
 # FIXME set pelo utilizador, pelo top-level make, ou pelo environment file
 FOOSSL_INCLUDE ?= $(HOME)/vc/foossl/include
@@ -87,7 +77,7 @@ $(info ------------------------------------------------------------------------)
 ifeq ($(SGX_MODE),HW)
 	SGX_TRTS := sgx_trts
 	SGX_TSERVICE := sgx_tservice
-	SGX_UAE_SERVICE := sgx_uae_service
+	#SGX_UAE_SERVICE := sgx_uae_service
 	SGX_URTS := sgx_urts
 	SGX_LAUNCH := sgx_launch
 	SGX_EPID := sgx_epid
@@ -129,64 +119,41 @@ TLIB_CFLAGS := $(CFLAGS) -std=c11 \
 		-fno-builtin-printf $(TLIB_IPATHS)
 
 ENC_IPATHS := \
-		-I$(IPAS_ATTESTATION_LIB)/include \
 		-I$(USGX_HOME)/include \
-		-I$(SGX_SSL)/include \
-		-I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc
-ENC_CFLAGS := $(CFLAGS) $(ENC_IPATHS) \
-		-fPIC -Wno-implicit-function-declaration \
-		-nostdinc -fvisibility=hidden \
-		-fpie -fstack-protector -fno-builtin-printf
+		-I$(IPAS_ATTESTATION_LIB)/include \
+		-I$(SGX_SDK)/include \
+		-I$(SGX_SDK)/include/tlibc \
+		-I$(SGX_SDK)/include/stlport
+ENC_CFLAGS := $(CFLAGS) -fPIC -Wno-implicit-function-declaration \
+		-std=c11 -nostdinc -fvisibility=hidden \
+		-fpie -fstack-protector -fno-builtin-printf \
+		$(ENC_IPATHS)
 ENC_LDFLAGS := $(CFLAGS) \
 		-nostdlib -nodefaultlibs -nostartfiles \
+		-L$(SGX_SDK)/lib64 \
 		-L$(USGX_HOME) \
-		-L$(IPAS_ATTESTATION_LIB) \
-		-L$(IPAS_LIB_DIR) \
-		-L$(SGX_SSL)/lib64 \
-		-L$(SGX_SDK)/lib64
+		-L$(IPAS_ATTESTATION_LIB) -L$(IPAS_LIB_DIR)
 ENC_LDLIBS := \
 		-lipas-attestation-secure \
 		-lipas-sealing-secure \
 		-lusgx-secure \
 		-Wl,--no-undefined \
-		-Wl,--whole-archive -lsgx_tsgxssl -Wl,--no-whole-archive \
-		-lsgx_tsgxssl_crypto -lsgx_pthread \
 		-Wl,--whole-archive -l$(SGX_TRTS) -Wl,--no-whole-archive \
-		-Wl,--start-group -lsgx_tstdc -lsgx_tcxx -lsgx_tcrypto -l$(SGX_TSERVICE) -Wl,--end-group \
+		-Wl,--start-group -lsgx_tstdc -lsgx_tcrypto -l$(SGX_TSERVICE) -Wl,--end-group \
 		-Wl,-Bstatic -Wl,-Bsymbolic -Wl,--no-undefined -Wl,-pie,-eenclave_entry -Wl,--export-dynamic \
 		-Wl,--defsym,__ImageBase=0 -Wl,--version-script=enclave.lds
-
-ULIB_CPPFLAGS := -I. \
-		-I$(USGX_HOME)/include \
-		-I$(IPAS_ATTESTATION_LIB)/include \
-		-I$(SGX_SSL)/include \
-		-I$(SGX_SDK)/include
-ULIB_CFLAGS := $(CFLAGS) -fPIC -Wno-attributes
-ULIB_LDFLAGS := -shared \
-		-L$(USGX_HOME) \
-		-L$(IPAS_ATTESTATION_LIB) \
-		-L$(IPAS_LIB_DIR) \
-		-L$(SGX_SSL)/lib64 \
-		-L$(SGX_SDK)/lib64
-ULIB_LDLIBS := \
-		-lipas-attestation-normal \
-		-lipas-sealing-normal \
-		-lusgx-normal \
-		-lsgx_usgxssl \
-		-l$(SGX_URTS) -l$(SGX_UAE_SERVICE) \
-		-lpthread -lc -ldl
+#-Wl,--start-group -lsgx_tstdc -lsgx_tstdcxx -lsgx_tcrypto -lsgx_tservice_sim -Wl,--end-group
 
 APP_CFLAGS := $(CFLAGS) \
-		-fPIC -Wno-attributes \
+		-I. \
+		-I$(IPAS_HOME)/include \
 		-I$(USGX_HOME)/include \
-		-I$(IPAS_ATTESTATION_LIB)/include \
 		-I$(FOOSSL_INCLUDE) \
 		-I$(SGX_SSL)/include \
-		-I$(SGX_SDK)/include
+		-I$(SGX_SDK)/include -fPIC -Wno-attributes
 APP_LDFLAGS := \
+		-L$(IPAS_HOME)/lib \
 		-L$(USGX_HOME) \
-		-L$(IPAS_ATTESTATION_LIB) \
-		-L$(IPAS_LIB_DIR) \
 		-L$(FOOSSL_LIBRARY) \
 		-L$(SGX_SSL)/lib64 \
 		-L$(SGX_SDK)/lib64
@@ -197,29 +164,26 @@ APP_LDLIBS := \
 		-lipas-sealing-normal \
 		-lusgx-normal \
 		-lsgx_usgxssl \
-		-lfoossl_client -lfoossl_common \
+		-lfoossl_server -lfoossl_common \
 		-l$(SGX_URTS) -l$(SGX_LAUNCH) -l$(SGX_EPID) \
-		-lssl -lcrypto \
-		-lpthread -lc -ldl -lzmq -lcapnp_c -ljansson
+		-ldl -lssl -lcrypto \
+		-lpthread -lc -lzmq -lcapnp_c -ljansson
 else
 APP_LDLIBS := \
 		-lipas-attestation-normal \
 		-lipas-sealing-normal \
 		-lusgx-normal \
 		-lsgx_usgxssl \
-		-lfoossl_client -lfoossl_common \
+		-lfoossl_server -lfoossl_common \
 		-l$(SGX_URTS) -l$(SGX_UAE_SERVICE) \
-		-lssl -lcrypto \
-		-lpthread -lc -ldl -lzmq -lcapnp_c -ljansson
+		-ldl -lssl -lcrypto \
+		-lpthread -lc -lzmq -lcapnp_c -ljansson
 endif
 
 # EDL_SEARCH_PATHS := .:$(SRX_API):$(SGX_SDK)/include:$(SGX_SSL)/include:$(SRX_USGX)/include
 
-TLIB := enclave.signed.so
-ULIB := untrusted.so
-APP := hello
 
-all: $(TLIB) $(ULIB) $(APP)
+all: css
 	$(call GOOD,,"[  MAKE  ] ","$(notdir $^)")
 
 ################################################################
@@ -264,7 +228,7 @@ deltls:
 	@rmdir --ignore-fail-on-non-empty tls 2> /dev/null | true
 
 ################################################################
-################################ TRUSTED LIBRARY
+################################ TRUSTED CODE
 ################################################################
 
 #enclave_t.c enclave_t.h: enclave.edl $(SRX_API)/srx.edl
@@ -274,9 +238,7 @@ deltls:
 enclave_t.c enclave_t.h: enclave.edl
 	@$(EDGER) --trusted enclave.edl \
 			--search-path $(USGX_HOME)/include \
-			--search-path $(IPAS_ATTESTATION_LIB)/include \
-			--search-path $(SGX_SSL)/include \
-			--search-path $(SGX_SDK)/include
+			--search-path $(IPAS_ATTESTATION_LIB)/include
 	$(info [  GEN   ] $^  >  $@)
 
 enclave_t.o: enclave_t.c
@@ -291,78 +253,53 @@ enclave.so: enclave_t.o enclave.o
 	@ $(CC) $(ENC_CFLAGS) $(ENC_LDFLAGS) -o $@ $^ $(ENC_LDLIBS)
 	$(info [  GEN   ] $^  >  $@)
 
-$(TLIB): enclave.so enclave.config.xml $(KEY_PR)
-	@$(SIGNER) sign -key $(KEY_PR) -enclave enclave.so -out $(TLIB) -config enclave.config.xml
+enclave.signed.so: enclave.so \
+		enclave.config.xml $(KEY_PR)
+	@$(SIGNER) sign -key $(KEY_PR) -enclave enclave.so -out enclave.signed.so -config enclave.config.xml
 	$(info [  SIGN  ] $^  >  $@)
 
 ################################################################
-################################ UNTRUSTED LIBRARY
-################################################################
-
-enclave_u.c enclave_u.h: enclave.edl
-	@$(EDGER) --untrusted $< \
-			--search-path $(USGX_HOME)/include \
-			--search-path $(IPAS_ATTESTATION_LIB)/include \
-			--search-path $(SGX_SSL)/include \
-			--search-path $(SGX_SDK)/include
-	$(info [  GEN   ] $^  >  $@)
-
-enclave_u.o: enclave_u.c enclave_u.h
-
-support.o: support.c enclave_u.h
-
-ULIB_OBJS := enclave_u.o support.o
-
-$(ULIB_OBJS):
-	@ $(CC) $(ULIB_CPPFLAGS) $(ULIB_CFLAGS) -c -o $@ $<
-	$(info [   CC   ] $^  >  $@)
-
-$(ULIB): $(ULIB_OBJS)
-	@ $(CC) $(ULIB_CPPFLAGS) $(ULIB_CFLAGS) -o $@ $^ $(ULIB_LDFLAGS) $(ULIB_LDLIBS)
-	$(info [  LINK  ] $^  >  $@)
-
-################################################################
-################################ APPLICATION
+################################ UNTRUSTED CODE
 ################################################################
 
 #enclave_u.c enclave_u.h: enclave.edl $(SRX_API)/srx.edl
 #	@$(EDGER) --untrusted $< --search-path $(EDL_SEARCH_PATHS)
 #	$(info [  GEN   ] $^  >  $@)
 
-enclave_u.c enclave_u.h: enclave.edl
-	@$(EDGER) --untrusted $< \
-			--search-path $(USGX_HOME)/include \
-			--search-path $(IPAS_ATTESTATION_LIB)/include \
-			--search-path $(SGX_SSL)/include \
-			--search-path $(SGX_SDK)/include
-	$(info [  GEN   ] $^  >  $@)
+#enclave_u.c enclave_u.h: enclave.edl
+#	@$(EDGER) --untrusted $< \
+#			--search-path $(USGX_HOME)/include \
+#			--search-path $(IPAS_ATTESTATION_LIB)/include
+#	$(info [  GEN   ] $^  >  $@)
 
-enclave_u.o: enclave_u.c enclave_u.h
+#enclave_u.o: enclave_u.c enclave_u.h
 
 # mainapp.o: mainapp.c enclave_u.h
 
-support.o: support.c enclave_u.h
-css.capnp.o: css.capnp.c css.capnp.h
-cencode.o: cencode.c cencode.h
-cdecode.o: cdecode.c cdecode.h
-base64.o: base64.c base64.h
-serialization.o: serialization.c serialization.h
-network.o: network.c network.h
-
-# network.o: network.c network.h enclave_u.h
-
+#support.o: support.c enclave_u.h
+rap/rap.capnp.o: rap/rap.capnp.c rap/rap.capnp.h
+rap/base64.o: rap/base64.c rap/base64.h
+rap/cencode.o: rap/cencode.c rap/cencode.h
+rap/cdecode.o: rap/cdecode.c rap/cdecode.h
+rap/serialization.o: rap/serialization.c rap/serialization.h
+rap/network.o: rap/network.c rap/network.h
+rap/rap.o: rap/rap.c rap/rap.h rap/rap.capnp.o
 disk.o: disk.c disk.h
-
-main.o: main.c enclave_u.h css.capnp.o css.capnp.h serialization.[ch]
+ssl.o: ssl.c ssl.h
+css.capnp.o: css.capnp.c css.capnp.h
+main.o: main.c css.capnp.o rap/rap.capnp.o rap/rap.capnp.h rap/rap.[ch] disk.o ssl.o
+#main.c enclave_u.h rap.capnp.o
 
 #CLIENT_NORMAL_OBJS := enclave_u.o mainapp.o support.o network.o disk.o
-CLIENT_NORMAL_OBJS := enclave_u.o main.o support.o disk.o css.capnp.o cencode.o cdecode.o base64.o serialization.o network.o
+# enclave_u.o main.o support.o
+CLIENT_NORMAL_OBJS := main.o css.capnp.o rap/rap.capnp.o rap/cencode.o rap/cdecode.o rap/base64.o rap/rap.o rap/serialization.o rap/network.o disk.o ssl.o
 
 $(CLIENT_NORMAL_OBJS):
 	@ $(CC) $(APP_CFLAGS) -c $< -o $@
 	$(info [   CC   ] $^  >  $@)
 
-$(APP): $(CLIENT_NORMAL_OBJS) $(TLIB)
+#enclave.signed.so
+css: $(CLIENT_NORMAL_OBJS)
 	@$(CC) $(APP_CFLAGS) -o $@ $^ $(APP_LDFLAGS) $(APP_LDLIBS)
 	$(info [  LINK  ] $^  >  $@)
 
@@ -373,18 +310,20 @@ $(APP): $(CLIENT_NORMAL_OBJS) $(TLIB)
 css.capnp.c css.capnp.h: css.capnp
 	capnp compile -o c css.capnp
 
+rap/rap.capnp.c rap/rap.capnp.h: rap/rap.capnp
+	capnp compile -o c rap/rap.capnp
+
 ################################################################
 ################################ MAINTENANCE
 ################################################################
 
-TRASH := $(APP) \
-		enclave_t.h enclave_t.c enclave_t.o \
-		enclave.o enclave.so $(TLIB) \
-		$(ULIB_OBJS) $(ULIB) \
-		enclave_u.h enclave_u.c enclave_u.o \
-		disk.o network.o support.o \
+TRASH := css \
+		disk.o rap/network.o ssl.o support.o \
+		rap/rap.capnp.h rap/rap.capnp.c rap/rap.capnp.o \
+		rap/base64.o rap/cencode.o rap/cdecode.o rap/serialization.o \
+		rap/network.o rap/rap.o \
 		css.capnp.h css.capnp.c css.capnp.o \
-		cencode.o cdecode.o base64.o serialization.o network.o \
+		temp_untrusted.so \
 		main.o
 clean:
 	@rm -rf $(TRASH)

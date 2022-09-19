@@ -67,8 +67,11 @@ TLIB_CFLAGS := $(CPPFLAGS) $(CFLAGS) \
 
 ULIB_CFLAGS := $(CPPFLAGS) $(CFLAGS) -I$(SGX_SDK)/include -fPIC -Wno-attributes
 
-all: $(IPAS_LIB_DIR)/libipas-sealing-normal.a $(IPAS_LIB_DIR)/libipas-sealing-secure.a
+all: $(IPAS_LIB_DIR)/libipas-sealing-normal.a $(IPAS_LIB_DIR)/libipas-sealing-secure.a | $(IPAS_LIB_DIR)
 	@echo "MAKE  ·  $^"
+
+$(IPAS_LIB_DIR):
+	mkdir $(IPAS_LIB_DIR)
 
 #                           UNTRUSTED                           #
 
@@ -97,7 +100,7 @@ t/sealing_t.c t/sealing_t.h: $(IPAS_HOME)/include/ipas/sealing.edl
 			--search-path $(SGX_SDK)/include
 	@echo "GEN   ·  $^  >  $@"
 
-t/sealing.o: t/sealing_t.h
+t/sealing.o: $(IPAS_HOME)/include/ipas/t/sealing.h t/sealing_t.h
 
 t/%.o: t/%.c
 	@$(CC) $(TLIB_CFLAGS) -c $< -o $@

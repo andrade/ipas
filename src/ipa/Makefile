@@ -15,6 +15,11 @@ $(info [SGX_DEBUG] "$(SGX_DEBUG)")
 USGX_HOME ?=
 $(info [USGX_HOME] "$(USGX_HOME)")
 
+$(info [  HOME  ] "$(IPAS_HOME)")
+IPAS_LIB_DIR := $(IPAS_HOME)/lib
+IPAS_INC_DIR := $(IPAS_HOME)/include
+IPAS_SRC_DIR := $(IPAS_HOME)/src/ipa
+
 define GOOD
 	@echo -n $1
 	@tput setaf 6
@@ -33,7 +38,7 @@ endef
 
 $(info ------------------------------------------------------------------------)
 
-CPPFLAGS := -I./include -I$(USGX_HOME)/include
+CPPFLAGS := -I$(IPAS_INC_DIR) -I$(USGX_HOME)/include
 CFLAGS := -m64 -Wall -Wextra -std=c11
 
 ifeq ($(SGX_DEBUG),1)
@@ -55,19 +60,24 @@ ULIB_IPATHS := -I$(SGX_SSL)/include -I$(SGX_SDK)/include
 ULIB_CFLAGS := $(CPPFLAGS) $(CFLAGS) $(ULIB_IPATHS) \
 		-fPIC -Wno-attributes
 
-all: libipas-attestation-normal.a libipas-attestation-secure.a
+all: libipas-attestation-normal.a libipas-attestation-secure.a | $(IPAS_LIB_DIR)
 	@echo "MAKE  ·  $^"
+	cp libipas-attestation-normal.a $(IPAS_LIB_DIR)
+	cp libipas-attestation-secure.a $(IPAS_LIB_DIR)
+
+$(IPAS_LIB_DIR):
+	mkdir $(IPAS_LIB_DIR)
 
 #                           UNTRUSTED                           #
 
-src/u/attestation_u.c src/u/attestation_u.h: include/ipas/attestation.edl
+src/u/attestation_u.c src/u/attestation_u.h: $(IPAS_INC_DIR)/ipas/attestation.edl
 	@$(EDGER) --untrusted $< --untrusted-dir src/u \
 			--search-path $(USGX_HOME)/include \
 			--search-path $(SGX_SSL)/include \
 			--search-path $(SGX_SDK)/include
 	@echo "GEN   ·  $^  >  $@"
 
-src/u/attestation.o: include/ipas/u/attestation.h src/u/attestation_u.h
+src/u/attestation.o: $(IPAS_INC_DIR)/ipas/u/attestation.h src/u/attestation_u.h
 #src/u/rap.capnp.c src/u/rap.capnp.h src/u/serialization.[ch]
 #src/u/attestation.o: src/u/attestation_u.h
 
@@ -84,14 +94,14 @@ libipas-attestation-normal.a: src/u/attestation.o src/u/attestation_u.o src/u/on
 
 #                            TRUSTED                            #
 
-src/t/attestation_t.c src/t/attestation_t.h: include/ipas/attestation.edl
+src/t/attestation_t.c src/t/attestation_t.h: $(IPAS_INC_DIR)/ipas/attestation.edl
 	@$(EDGER) --trusted $< --trusted-dir src/t \
 			--search-path $(USGX_HOME)/include \
 			--search-path $(SGX_SSL)/include \
 			--search-path $(SGX_SDK)/include
 	@echo "GEN   ·  $^  >  $@"
 
-src/t/attestation.o: src/t/attestation_t.h
+src/t/attestation.o: $(IPAS_INC_DIR)/ipas/t/attestation.h src/t/attestation_t.h
 src/t/cdecode.o: src/t/cdecode.h
 src/t/cJSON.o: src/t/cJSON.h
 src/t/perdec.o: src/t/perdec.h
@@ -124,10 +134,12 @@ TRASH := \
 		src/u/serialization.o src/u/network.o \
 		src/u/attestation.o \
 		libipas-attestation-normal.a \
+		$(IPAS_LIB_DIR)/libipas-attestation-normal.a \
 		src/t/attestation_t.h src/t/attestation_t.c src/t/attestation_t.o \
 		src/t/attestation.o \
 		src/t/cdecode.o src/t/cJSON.o src/t/perdec.o src/t/x509.o \
-		libipas-attestation-secure.a
+		libipas-attestation-secure.a \
+		$(IPAS_LIB_DIR)/libipas-attestation-secure.a
 
 clean:
 	@rm -rf $(TRASH)
