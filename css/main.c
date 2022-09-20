@@ -1,3 +1,7 @@
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <assert.h>
 #include <dlfcn.h>
 #include <errno.h>
@@ -6,6 +10,7 @@
 #include <stdbool.h>
 #include <strings.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -21,7 +26,6 @@
 
 #include "cebug.h"
 #include "debug.h"
-#include "disk.h"
 #include "ssl.h"
 
 // #include "rap/network.h"
@@ -58,6 +62,80 @@ static int destroy_enclave(sgx_enclave_id_t *eid)
 	fprintf(stdout, "sgx_destroy_enclave(): success\n");
 
 	return 0;
+}
+
+// write binary using file descriptor
+static int write_bd(const void *data, size_t size, const int *fd)
+{
+	assert(data);
+
+	FILE *fp = fdopen(fd, "wb");
+	if (!fp) {
+		int errsv = errno;
+		LOG("Error: fdopen() (%s)\n", strerror(errsv));
+		return EXIT_FAILURE;
+	}
+
+	int ret = EXIT_SUCCESS;
+
+	if (fwrite(data, size, 1, fp) != 1) {
+		LOG("Error: fwrite()\n");
+		ret = EXIT_FAILURE;
+	}
+
+	if (fclose(fp)) {
+		int errsv = errno;
+		LOG("Error: fclose() (%s)\n", strerror(errsv));
+		ret = EXIT_FAILURE;
+	}
+
+	return ret;
+}
+
+// on success handle will be set and must be released by caller with dlclose
+static void *dlopen_from_buf(const void *dso, size_t size, int flags)
+{
+	assert(dso);
+	assert(size > 0);
+
+	// temporary file path for untrusted DSO
+	char template[] = "untrusted.so.XXXXXX";
+	int fd = mkstemp(template);
+	if (fd == -1) {
+		LOG("Error: mkstemp\n");
+		return NULL;
+	}
+
+	// save untrusted DSO to temporary location
+	if (write_bd(dso, size, fd)) {
+		LOG("Error: saving untrusted code shared object to disk\n");
+		unlink(template);
+		return NULL;
+	}
+
+	char path[PATH_MAX];
+	if (!realpath(template, path)) {
+		LOG("Error: realpath()\n");
+		unlink(template);
+		return NULL;
+	}
+	LOG("real path: %s\n", path);
+
+	dlerror();
+	void *handle = dlopen(path, flags);
+	if (!handle) {
+		LOG("Error: dlopening untrusted code shared object (%s)\n", dlerror());
+		unlink(path);
+		return NULL;
+	}
+	LOG("Loaded untrusted DSO\n");
+
+	if (unlink(path)) {
+		LOG("Warning: unlink (%s)\n", strerror(errno));
+		// keep going
+	}
+
+	return handle;
 }
 
 // data buffer to capn_data: on error (struct is zeroed and) type is CAPN_NULL.
@@ -215,32 +293,11 @@ static int process_m1(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 		return fail_m1(wbuf, wcap, wlen, NULL, CSSMessageStatus_failure);
 	}
 
-
-	// TODO  Carregar untrusted.so com dlopen, e depois usar dlsym para ecalls:
-
-
-	// TODO dlopen from memory
-	assert(m1q.untrusted.p.len > 0);
-	if (save_data(m1q.untrusted.p.data, m1q.untrusted.p.len, "temp_untrusted.so")) {
-		LOG("Error: saving untrusted code shared object to disk\n");
-		// TODO destroy enclave
-		return fail_m1(wbuf, wcap, wlen, NULL, CSSMessageStatus_failure);
-	}
-#if 0
-	dlerror();
-	// void *handle = dlopen("/home/daniel/w/main/20A1/vc/ipas/ipas-css/temp_untrusted.so", RTLD_NOW);
-	// udso_h = handle;
-	udso_h = dlopen("/home/daniel/w/main/20A1/vc/ipas/ipas-css/temp_untrusted.so", RTLD_NOW);
+	// load untrusted DSO (enclave's untrusted code)
+	udso_h = dlopen_from_buf(m1q.untrusted.p.data, m1q.untrusted.p.len, RTLD_NOW);
 	if (!udso_h) {
-		LOG("Error: dlopening untrusted code shared object (%s)\n", dlerror());
-		// TODO destroy enclave
 		return fail_m1(wbuf, wcap, wlen, NULL, CSSMessageStatus_failure);
 	}
-	// TODO remove "temp_untrusted.so" from disk or maybe use tmp
-	LOG("Loaded untrusted DSO\n");
-#endif
-
-
 
 	// LOG("sizeof(enclave)=%d\n", m1q.enclave.p.len);
 	// LOG("sizeof(aPublic)=%d\n", m1q.aPublic.p.len);
@@ -249,7 +306,7 @@ static int process_m1(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 
 	// setup MA library
 	// struct ipas_attest_st ia = {0};
-	if (ipas_ma_init(&ia, 2, eid, udso_h, ROLE_RESPONDER)) {
+	if (ipas_ma_init_dynamic(&ia, 2, eid, udso_h, ROLE_RESPONDER)) {
 		fprintf(stderr, "ipas_ma_init: failure\n");
 		return 10;
 	}
@@ -778,12 +835,11 @@ static int cleanup(int result)
 		LOG("ipas_ma_free\n");
 		ipas_ma_free(&ia);
 	}
-#if 0
-	if (udso_h) {
+	if (result && udso_h) {
 		dlclose(udso_h);
 		udso_h = NULL;
+		LOG("Unloaded untrusted DSO\n");
 	}
-#endif
 
 	return result;
 }

@@ -567,7 +567,7 @@ static int run_ma_step_1_init(sgx_enclave_id_t *eid, struct ipas_attest_st *ia)
 	}
 
 	// setup MA library
-	if (ipas_ma_init(ia, 1, *eid, NULL, ROLE_INITIATOR)) {
+	if (ipas_ma_init(ia, 1, *eid, ROLE_INITIATOR)) {
 		fprintf(stderr, "ipas_ma_init: failure\n");
 		destroy_enclave(eid);
 		return 1;

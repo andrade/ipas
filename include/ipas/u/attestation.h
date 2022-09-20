@@ -152,8 +152,10 @@ struct ipas_ma_m4 {
 // };
 
 
+int ipas_ma_init_dynamic(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role);
+
 // alocar recursos para IPA, tentar ter tudo estático
-int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role);
+int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, enum role role);
 
 // release recursos, mas apenas se for preciso (tiver coisas dinâmicas, ou open)
 int ipas_ma_free(struct ipas_attest_st *ia);

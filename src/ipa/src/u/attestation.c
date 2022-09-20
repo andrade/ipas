@@ -34,41 +34,27 @@ static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *
 // static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *sep);
 
 // TODO Cliente deve passar um SID aqui porque cliente é que sabe quais existem, dentro do enclave não verifico collisions.
-int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role)
+int ipas_ma_init_dynamic(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role)
 {
 	ia->sid = sid;
 	ia->eid = eid;
-	if (role == ROLE_RESPONDER) {
-		dlerror();
-		ia->udso = dlopen("../css/temp_untrusted.so", RTLD_NOW);
-		// FIXME responder deve passar library para aqui, se assim se justificar
-		if (!ia->udso) {
-			LOG("Error: dlopening untrusted code shared object (%s)\n", dlerror());
-			return 1;
-		}
-		LOG("Loaded untrusted DSO in attestation library\n");
-	}
-	//
-	// FIXME Quando crio dlopen aqui funciona, mas passar handle falha porquê?
-	//
-	// if (role == ROLE_RESPONDER) {
-	// 	ia->udso = uh;
-	// }
+	ia->udso = uh;
 	ia->role = role;
 
 	return 0;
+}
+
+int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, enum role role)
+{
+	return ipas_ma_init_dynamic(ia, sid, eid, NULL, role);
 }
 
 int ipas_ma_free(struct ipas_attest_st *ia)
 {
 	ia->eid = 0;
 	if (ia->udso) {
-		dlclose(ia->udso);
 		ia->udso = NULL;
 	}
-	// if (ia->udso) {
-	// 	ia->udso = NULL;
-	// }
 
 	return 0;
 }
@@ -188,13 +174,17 @@ int ipas_ma_get_m2(struct ipas_attest_st *ia, struct ipas_ma_p2 *p2, struct ipas
 	sgx_ec256_public_t public;
 	uint8_t nonce[16];
 	// sgx_status_t ss = ipa_m89(ia->eid, &ecall_return, 2, &ia->qe_target_info, &public, nonce, &report);
-	sgx_status_t (*f_ipas_ma_create_keys)(sgx_enclave_id_t, ipas_status *, sgx_ec256_public_t *, uint8_t *, uint32_t, int);
-	*(void **) (&f_ipas_ma_create_keys) = dlsym(ia->udso, "ipas_ma_create_keys");
-	if (!f_ipas_ma_create_keys) {
-		LOG("Error: f_ipas_ma_create_keys (%s)\n", dlerror());
-		return 1;
+	if (ia->udso) {
+		sgx_status_t (*f_ipas_ma_create_keys)(sgx_enclave_id_t, ipas_status *, sgx_ec256_public_t *, uint8_t *, uint32_t, int);
+		*(void **) (&f_ipas_ma_create_keys) = dlsym(ia->udso, "ipas_ma_create_keys");
+		if (!f_ipas_ma_create_keys) {
+			LOG("Error: f_ipas_ma_create_keys (%s)\n", dlerror());
+			return 1;
+		}
+		ss = f_ipas_ma_create_keys(ia->eid, &er, &public, nonce, ia->sid, 2);
+	} else {
+		ss = ipas_ma_create_keys(ia->eid, &er, &public, nonce, ia->sid, 2);
 	}
-	ss = f_ipas_ma_create_keys(ia->eid, &er, &public, nonce, ia->sid, 2);
 	if (SGX_SUCCESS != ss || er) {
 		LOG("ipas_ma_create_keys: failure (ss=%"PRIx32", er=%"PRIx32")\n", ss, er);
 		return 1;
@@ -309,13 +299,17 @@ int ipas_ma_get_p3(struct ipas_attest_st *ia, struct ipas_ma_m3 *m3, struct ipas
 	ipas_status er;
 	sgx_report_t report;
 	memset(&report, 0, sizeof(report));
-	sgx_status_t (*f_ipas_ma_create_report)(sgx_enclave_id_t, ipas_status *, sgx_report_t *, uint32_t, sgx_target_info_t *, sgx_ec256_public_t *);
-	*(void **) (&f_ipas_ma_create_report) = dlsym(ia->udso, "ipas_ma_create_report");
-	if (!f_ipas_ma_create_report) {
-		LOG("Error: f_ipas_ma_create_report (%s)\n", dlerror());
-		return 1;
+	if (ia->udso) {
+		sgx_status_t (*f_ipas_ma_create_report)(sgx_enclave_id_t, ipas_status *, sgx_report_t *, uint32_t, sgx_target_info_t *, sgx_ec256_public_t *);
+		*(void **) (&f_ipas_ma_create_report) = dlsym(ia->udso, "ipas_ma_create_report");
+		if (!f_ipas_ma_create_report) {
+			LOG("Error: f_ipas_ma_create_report (%s)\n", dlerror());
+			return 1;
+		}
+		ss = f_ipas_ma_create_report(ia->eid, &er, &report, ia->sid, &ia->qe_target_info, &ia->pub_a);
+	} else {
+		ss = ipas_ma_create_report(ia->eid, &er, &report, ia->sid, &ia->qe_target_info, &ia->pub_a);
 	}
-	ss = f_ipas_ma_create_report(ia->eid, &er, &report, ia->sid, &ia->qe_target_info, &ia->pub_a);
 	if (SGX_SUCCESS != ss || er) {
 		LOG("ipas_ma_create_report: failure (ss=%"PRIx32", er=%"PRIx32")\n", ss, er);
 		return 1;
@@ -397,21 +391,30 @@ int ipas_ma_get_m4(struct ipas_attest_st *ia, struct ipas_ma_p4 *p4, struct ipas
 #endif
 
 	{
-		sgx_status_t (*f_ipas_ma_validate_reports)(sgx_enclave_id_t, ipas_status *, uint32_t, uint32_t, char *, char *, char *, char *, uint32_t, char *, char *, char *, char *);
-		*(void **) (&f_ipas_ma_validate_reports) = dlsym(ia->udso, "ipas_ma_validate_reports");
-		if (!f_ipas_ma_validate_reports) {
-			LOG("Error: f_ipas_ma_validate_reports (%s)\n", dlerror());
-			return 1;
-		}
-
 		// validate both reports inside enclave
 		sgx_status_t ss;
 		int r;
-		ss = f_ipas_ma_validate_reports(ia->eid, &r, ia->sid,
+
+		if (ia->udso) {
+			sgx_status_t (*f_ipas_ma_validate_reports)(sgx_enclave_id_t, ipas_status *, uint32_t, uint32_t, char *, char *, char *, char *, uint32_t, char *, char *, char *, char *);
+			*(void **) (&f_ipas_ma_validate_reports) = dlsym(ia->udso, "ipas_ma_validate_reports");
+			if (!f_ipas_ma_validate_reports) {
+				LOG("Error: f_ipas_ma_validate_reports (%s)\n", dlerror());
+				return 1;
+			}
+			ss = f_ipas_ma_validate_reports(ia->eid, &r, ia->sid,
 				p4->status_a, p4->rid_a, p4->sig_a, p4->cc_a,
 				p4->report_a,
 				p4->status_b, p4->rid_b, p4->sig_b, p4->cc_b,
 				p4->report_b);
+		} else {
+			ss = ipas_ma_validate_reports(ia->eid, &r, ia->sid,
+				p4->status_a, p4->rid_a, p4->sig_a, p4->cc_a,
+				p4->report_a,
+				p4->status_b, p4->rid_b, p4->sig_b, p4->cc_b,
+				p4->report_b);
+		}
+
 		if (SGX_SUCCESS != ss) {
 			fprintf(stderr, "ecall_return = %d\n", r);
 			fprintf(stderr, "sgx_status = %"PRIx32"\n", ss);
@@ -426,16 +429,21 @@ int ipas_ma_get_m4(struct ipas_attest_st *ia, struct ipas_ma_p4 *p4, struct ipas
 	}
 
 	{
-		sgx_status_t (*f_ipas_ma_prepare_m4)(sgx_enclave_id_t, ipas_status *, uint32_t, uint8_t *, uint8_t *);
-		*(void **) (&f_ipas_ma_prepare_m4) = dlsym(ia->udso, "ipas_ma_prepare_m4");
-		if (!f_ipas_ma_prepare_m4) {
-			LOG("Error: f_ipas_ma_prepare_m4 (%s)\n", dlerror());
-			return 1;
-		}
-
 		sgx_status_t ss;
 		int r;
-		ss = f_ipas_ma_prepare_m4(ia->eid, &r, ia->sid, m4->data, m4->mac);
+
+		if (ia->udso) {
+			sgx_status_t (*f_ipas_ma_prepare_m4)(sgx_enclave_id_t, ipas_status *, uint32_t, uint8_t *, uint8_t *);
+			*(void **) (&f_ipas_ma_prepare_m4) = dlsym(ia->udso, "ipas_ma_prepare_m4");
+			if (!f_ipas_ma_prepare_m4) {
+				LOG("Error: f_ipas_ma_prepare_m4 (%s)\n", dlerror());
+				return 1;
+			}
+			ss = f_ipas_ma_prepare_m4(ia->eid, &r, ia->sid, m4->data, m4->mac);
+		} else {
+			ss = ipas_ma_prepare_m4(ia->eid, &r, ia->sid, m4->data, m4->mac);
+		}
+
 		if (SGX_SUCCESS != ss) {
 			fprintf(stderr, "ecall_return = %d\n", r);
 			fprintf(stderr, "sgx_status = %"PRIx32"\n", ss);

@@ -284,15 +284,14 @@ rap/cdecode.o: rap/cdecode.c rap/cdecode.h
 rap/serialization.o: rap/serialization.c rap/serialization.h
 rap/network.o: rap/network.c rap/network.h
 rap/rap.o: rap/rap.c rap/rap.h rap/rap.capnp.o
-disk.o: disk.c disk.h
 ssl.o: ssl.c ssl.h
 css.capnp.o: css.capnp.c css.capnp.h
-main.o: main.c css.capnp.o rap/rap.capnp.o rap/rap.capnp.h rap/rap.[ch] disk.o ssl.o
+main.o: main.c css.capnp.o rap/rap.capnp.o rap/rap.capnp.h rap/rap.[ch] ssl.o
 #main.c enclave_u.h rap.capnp.o
 
 #CLIENT_NORMAL_OBJS := enclave_u.o mainapp.o support.o network.o disk.o
 # enclave_u.o main.o support.o
-CLIENT_NORMAL_OBJS := main.o css.capnp.o rap/rap.capnp.o rap/cencode.o rap/cdecode.o rap/base64.o rap/rap.o rap/serialization.o rap/network.o disk.o ssl.o
+CLIENT_NORMAL_OBJS := main.o css.capnp.o rap/rap.capnp.o rap/cencode.o rap/cdecode.o rap/base64.o rap/rap.o rap/serialization.o rap/network.o ssl.o
 
 $(CLIENT_NORMAL_OBJS):
 	@ $(CC) $(APP_CFLAGS) -c $< -o $@
@@ -318,7 +317,7 @@ rap/rap.capnp.c rap/rap.capnp.h: rap/rap.capnp
 ################################################################
 
 TRASH := css \
-		disk.o rap/network.o ssl.o support.o \
+		rap/network.o ssl.o support.o \
 		rap/rap.capnp.h rap/rap.capnp.c rap/rap.capnp.o \
 		rap/base64.o rap/cencode.o rap/cdecode.o rap/serialization.o \
 		rap/network.o rap/rap.o \
