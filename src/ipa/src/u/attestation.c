@@ -33,7 +33,6 @@ static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *
 // // TEMP TORM
 // static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *sep);
 
-// TODO Cliente deve passar um SID aqui porque cliente é que sabe quais existem, dentro do enclave não verifico collisions.
 int ipas_ma_init_dynamic(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role)
 {
 	ia->sid = sid;
@@ -84,7 +83,7 @@ int ipas_ma_get_m1(struct ipas_attest_st *ia, struct ipas_ma_m1 *m1)
 	ipas_status is;
 	sgx_ec256_public_t public;
 	uint8_t nonce[16];
-	ss = ipas_ma_create_keys(ia->eid, &is, &public, nonce, ia->sid, 1);
+	ss = ipas_ma_create_keys(ia->eid, &is, &public, nonce, ia->sid, ia->role);
 	if (SGX_SUCCESS != ss) {
 		LOG("ipas_ma_create_keys: failure (ss=%"PRIx32", er=%"PRIx32")\n", ss, is);
 		return 1;
@@ -181,9 +180,11 @@ int ipas_ma_get_m2(struct ipas_attest_st *ia, struct ipas_ma_p2 *p2, struct ipas
 			LOG("Error: f_ipas_ma_create_keys (%s)\n", dlerror());
 			return 1;
 		}
-		ss = f_ipas_ma_create_keys(ia->eid, &er, &public, nonce, ia->sid, 2);
+		ss = f_ipas_ma_create_keys(ia->eid, &er, &public, nonce,
+				ia->sid, ia->role);
 	} else {
-		ss = ipas_ma_create_keys(ia->eid, &er, &public, nonce, ia->sid, 2);
+		ss = ipas_ma_create_keys(ia->eid, &er, &public, nonce,
+				ia->sid, ia->role);
 	}
 	if (SGX_SUCCESS != ss || er) {
 		LOG("ipas_ma_create_keys: failure (ss=%"PRIx32", er=%"PRIx32")\n", ss, er);
