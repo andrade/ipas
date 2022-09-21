@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <getopt.h>
 
 #include <foossl_server.h>
 #include <foossl_common.h>
@@ -37,6 +38,7 @@
 static sgx_enclave_id_t eid; // enclave received from client
 static struct ipas_attest_st ia; // MA context
 static void *udso_h; // dlopen handle for the untrusted DSO
+static const char spid[32 + 1];
 
 static int create_enclave_from_buf(sgx_enclave_id_t *eid, uint8_t *enclave, size_t size)
 {
@@ -306,7 +308,7 @@ static int process_m1(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 
 	// setup MA library
 	// struct ipas_attest_st ia = {0};
-	if (ipas_ma_init_dynamic(&ia, 2, eid, udso_h, ROLE_RESPONDER)) {
+	if (ipas_ma_init_dynamic(&ia, 2, eid, udso_h, ROLE_RESPONDER, spid)) {
 		fprintf(stderr, "ipas_ma_init: failure\n");
 		return 10;
 	}
@@ -846,15 +848,41 @@ static int cleanup(int result)
 
 int main(int argc, char *argv[])
 {
-	LOG("Started CSS\n");
+	int port = 54433;
+
+	const struct option longopts[] = {
+		{"port", required_argument, NULL, 'p'},
+		{"spid", required_argument, NULL, 's'},
+		{0, 0, 0, 0}
+	};
+
+	int c;
+
+	while ((c = getopt_long(argc, argv, "p:s:", longopts, NULL)) != -1) {
+		switch (c) {
+		case 'p':
+			port = atoi(optarg);
+			break;
+		case 's':
+			snprintf(spid, sizeof(spid), "%s", optarg);
+			break;
+		case '?':
+			break;
+		default:
+			break;
+		}
+	}
+
 
 	struct foossl_server_st foossl;
 
-	if (foossl_server_connect(&foossl, 54433)) {
+	if (foossl_server_connect(&foossl, port)) {
 		perror("connect: unable to create secure listening connection");
 		foossl_server_destroy(&foossl);
 		return -1;
 	}
+
+	fprintf(stdout, "Listening on port %d\n", port);
 
 	while (1) {
 		SSL *ssl = NULL;

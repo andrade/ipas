@@ -21,6 +21,7 @@ struct ipas_attest_st {
 	sgx_enclave_id_t eid;
 	void *udso; // dlopen handle for the untrusted DSO
 	enum role role;
+	sgx_spid_t spid;
 
 	sgx_target_info_t qe_target_info;
 
@@ -152,10 +153,10 @@ struct ipas_ma_m4 {
 // };
 
 
-int ipas_ma_init_dynamic(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role);
+int ipas_ma_init_dynamic(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role, const char *spid);
 
 // alocar recursos para IPA, tentar ter tudo estático
-int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, enum role role);
+int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, enum role role, const char *spid);
 
 // release recursos, mas apenas se for preciso (tiver coisas dinâmicas, ou open)
 int ipas_ma_free(struct ipas_attest_st *ia);

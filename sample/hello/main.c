@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <unistd.h>                     // getopt()
 #include <arpa/inet.h>
+#include <getopt.h>
 
 #include <foossl_client.h>
 #include <foossl_common.h>
@@ -34,7 +35,18 @@
 
 #define ENCLAVE_FILE "enclave.signed.so"
 
+/** Default filename for sealed data. */
 static const char SEALED_DATA_FILE[] = "sealed.sd";
+
+// command-line options are stored in this structure, then fed to run functions
+struct mainopts {
+	const char *host;       // CSS host
+	int port;               // CSS port
+	const char *spid;       // unique identifier of the Service Provider
+	const char *output;     // path for storing the sealed data file
+	const char *input;      // path for reading the sealed data file
+	const char *message;    // message to seal
+};
 
 // static const char SRX_STATE_PATH[] = "data.srx";
 // static const char INIT_RP_PATH[] = "rpinit.srx";
@@ -559,7 +571,7 @@ static int test(SSL *ssl)
 ** Returns zero on success, or non-zero otherwise.
 ** If successfull, resources are released afterwards with `run_ma_step_3_free`.
 **/
-static int run_ma_step_1_init(sgx_enclave_id_t *eid, struct ipas_attest_st *ia)
+static int run_ma_step_1_init(sgx_enclave_id_t *eid, struct ipas_attest_st *ia, const char *spid)
 {
 	// create enclave
 	if (create_enclave(eid)) {
@@ -567,7 +579,7 @@ static int run_ma_step_1_init(sgx_enclave_id_t *eid, struct ipas_attest_st *ia)
 	}
 
 	// setup MA library
-	if (ipas_ma_init(ia, 1, *eid, ROLE_INITIATOR)) {
+	if (ipas_ma_init(ia, 1, *eid, ROLE_INITIATOR, spid)) {
 		fprintf(stderr, "ipas_ma_init: failure\n");
 		destroy_enclave(eid);
 		return 1;
@@ -705,17 +717,20 @@ static void run_ma_step_3_free(sgx_enclave_id_t *eid, struct ipas_attest_st *ia)
 ** Runs the IPAS sealing protocol.
 **
 ** Invoke only after successful MA.
-** The sealed data is stored in a file named by constant `SEALED_DATA_FILE`.
 **
 ** [i]  eid
 ** [i]  ssl
-** [i]  data:           client data to seal
-** [i]  size:           size of the client data to seal
+** [i]  toseal:         client data to seal
+** [i]  toseal_size:    size of the client data to seal
+** [o]  sealed_data:    the sealed data
+** [o]  sd_cap:         the capacity of the sealed data buffer
+** [o]  sd_len:         the actual length of `sealed_data` (on success)
 **
 ** Returns zero on success, non-zero otherwise.
 **/
 static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
-		const void *toseal, size_t toseal_size)
+		const void *toseal, size_t toseal_size,
+		void *sealed_data, size_t sd_cap, size_t *sd_len)
 {
 	uint8_t buffer[1024] = {0};
 	uint32_t length;
@@ -757,26 +772,16 @@ static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
 
 	// Now that MA completed successfully, we seal the client data:
 
-	uint8_t sealed_data[4096] = {0};
-	uint32_t size = 0;
-
 	int r = 1;
 	sgx_status_t ss = 1;
-	ss = ecall_seal_data(*eid, &r, sealed_data, sizeof(sealed_data), &size, toseal, toseal_size);
+	ss = ecall_seal_data(*eid, &r, sealed_data, sd_cap, sd_len, toseal, toseal_size);
 	if (ss || r) {
 		fprintf(stderr, "Error: ecall_seal_data (ss=0x%"PRIx32", is=%"PRIu32")\n", ss, r);
 		return 0xE3;
 	}
 	fprintf(stdout, "ecall_seal_data: OK\n");
 
-	fprintf(stderr, "sd_len=%"PRIu32"\n", size);
-
-	// write sealed data to disk
-	if (save_data(sealed_data, size, SEALED_DATA_FILE)) {
-		fprintf(stderr, "Error: writing sealed data to disk\n");
-		return 0xE4;
-	}
-	fprintf(stdout, "Wrote sealed data to disk (file=%s)\n", SEALED_DATA_FILE);
+	fprintf(stderr, "sd_len=%zu\n", *sd_len);
 
 	return 0;
 }
@@ -855,33 +860,143 @@ static int run_unsealing(sgx_enclave_id_t *eid, SSL *ssl,
 	return 0;
 }
 
-static int help()
+// using single parse function for all commands, but should have one for each
+static struct mainopts parse_options(int argc, char *argv[])
 {
-	const char *help = "$ hello help";
-	const char *ma = "$ hello ma <host> <port>";
-	const char *seal = "$ hello seal <host> <port> <data>";
-	const char *unseal = "$ hello unseal <host> <port> <sealed blob>";
-	const char *version = "$ hello version";
+	struct mainopts options = {
+		.host = "localhost",
+		.port = 54433,
+		.spid = "000E",
+		.output = SEALED_DATA_FILE,
+		.input = SEALED_DATA_FILE,
+		.message = "no message set",
+	};
 
-	fprintf(stdout, "  %s\n  %s\n  %s\n  %s\n  %s\n",
-			help, ma, seal, unseal, version);
+	const struct option longopts[] = {
+		{"host", required_argument, NULL, 'h'},
+		{"port", required_argument, NULL, 'p'},
+		{"spid", required_argument, NULL, 's'},
+		{"output", required_argument, NULL, 'o'},
+		{"input", required_argument, NULL, 'i'},
+		{"message", required_argument, NULL, 'm'},
+		{0, 0, 0, 0}
+	};
 
-	return EXIT_SUCCESS;
+	int c;
+
+	while ((c = getopt_long(argc, argv, "h:p:s:o:i:m:", longopts, NULL)) != -1) {
+		switch (c) {
+		case 'h':
+			options.host = optarg;
+			break;
+		case 'p':
+			options.port = atoi(optarg);
+			break;
+		case 's':
+			options.spid = optarg;
+			break;
+		case 'o':
+			options.output = optarg;
+			break;
+		case 'i':
+			options.input = optarg;
+			break;
+		case 'm':
+			options.message = optarg;
+			break;
+		case '?':
+			break;
+		default:
+			break;
+		}
+	}
+
+	return options;
+}
+
+// level=0 print full help, level=1 print short version, level=2 print synopsis
+static int help(int level)
+{
+	const char synopsis[] =
+			"SYNOPSIS\n"
+			"       hello help\n"
+			"       hello ma     [-h host] [-p port] [-s spid]\n"
+			"       hello seal   [-h host] [-p port] [-s spid] [-o output] [-m message]\n"
+			"       hello unseal [-h host] [-p port] [-s spid] [-i input]\n"
+			"       hello version\n"
+			"\n";
+
+	const char description[] =
+			"DESCRIPTION\n"
+			"       hello is a sample application of the IPAS libraries.\n"
+			"\n";
+
+	const char commands[] =
+			"COMMANDS\n"
+			"       help\n"
+			"              Print help information.\n"
+			"\n"
+			"       ma\n"
+			"              Mutual attestation between this client and CSS.\n"
+			"\n"
+			"       seal\n"
+			"              Seal a message provided as input, store to disk.\n"
+			"\n"
+			"       unseal\n"
+			"              Unseal a previously sealed message.\n"
+			"\n"
+			"       version\n"
+			"              Display version information.\n"
+			"\n";
+
+	const char options[] =
+			"OPTIONS\n"
+			"       -h host, --host=host\n"
+			"              CSS host.\n"
+			"\n"
+			"       -p port, --port=port\n"
+			"              CSS port.\n"
+			"\n"
+			"       -s spid, --spid=spid\n"
+			"              Unique identifier of the Service Provider in hex.\n"
+			"\n"
+			"       -o file, --output=file\n"
+			"              Path for storing the application sealed data.\n"
+			"\n"
+			"       -i file, --input=file\n"
+			"              Path for loading the application sealed data.\n"
+			"\n"
+			"       -m text, --message=text\n"
+			"              User-provided message for sealing.\n"
+			"\n";
+
+	const char author[] =
+			"AUTHOR\n"
+			"       Written by Daniel Andrade.\n"
+			"\n";
+
+	switch (level) {
+	case 0:
+		printf("%s%s%s%s%s", synopsis, description, commands, options, author);
+		return EXIT_SUCCESS;
+	case 1:
+		printf("try 'hello help'\n");
+		return EXIT_SUCCESS;
+	case 2:
+	default:
+		printf("%s", synopsis);
+		return EXIT_SUCCESS;
+	}
 }
 
 static int attest(int argc, char *argv[])
 {
-	if (argc < 3) {
-		fprintf(stderr, "Expected: $ hello ma <host> <port>\n");
-		return EXIT_FAILURE;
-	}
-
-	const char *host = argv[1];
-	int port = atoi(argv[2]);
+	struct mainopts opts = parse_options(argc, argv);
+	printf("host=%s\nport=%d\nspid=%s\n", opts.host, opts.port, opts.spid);
 
 	struct foossl_client_st foossl;
 
-	if (foossl_client_connect(&foossl, host, port)) {
+	if (foossl_client_connect(&foossl, opts.host, opts.port)) {
 		perror("unable to open secure connection to remote server");
 		foossl_client_destroy(&foossl);
 		return -1;
@@ -892,7 +1007,7 @@ static int attest(int argc, char *argv[])
 	sgx_enclave_id_t eid = {0};
 	struct ipas_attest_st ia = {0};
 
-	if (!run_ma_step_1_init(&eid, &ia)) {
+	if (!run_ma_step_1_init(&eid, &ia, opts.spid)) {
 		run_ma_step_2_execute(&ia, foossl.ssl);
 		run_ma_step_3_free(&eid, &ia);
 	}
@@ -909,20 +1024,15 @@ static int attest(int argc, char *argv[])
 
 static int seal(int argc, char *argv[])
 {
-	if (argc < 4) {
-		fprintf(stderr, "$ hello seal <host> <port> <data>\n");
-		return EXIT_FAILURE;
-	}
+	struct mainopts opts = parse_options(argc, argv);
+	printf("host=%s\nport=%d\nspid=%s\n", opts.host, opts.port, opts.spid);
 
-	const char *host = argv[1];
-	int port = atoi(argv[2]);
-	char *data = argv[3];
-
+	char *data = opts.message;
 	fprintf(stderr, "data=%s\n", data);
 
 	struct foossl_client_st foossl;
 
-	if (foossl_client_connect(&foossl, host, port)) {
+	if (foossl_client_connect(&foossl, opts.host, opts.port)) {
 		perror("unable to open secure connection to remote server");
 		foossl_client_destroy(&foossl);
 		return -1;
@@ -933,9 +1043,33 @@ static int seal(int argc, char *argv[])
 	sgx_enclave_id_t eid = {0};
 	struct ipas_attest_st ia = {0};
 
-	if (!run_ma_step_1_init(&eid, &ia)) {
+	if (!run_ma_step_1_init(&eid, &ia, opts.spid)) {
 		if (!run_ma_step_2_execute(&ia, foossl.ssl)) {
-			run_sealing(&eid, foossl.ssl, data, strlen(data) + 1);
+			uint8_t sealed_data[4096] = {0};
+			uint32_t size = 0;
+
+			int r = run_sealing(&eid, foossl.ssl,
+					data, strlen(data) + 1,
+					sealed_data, sizeof(sealed_data), &size);
+
+			if (r) {
+				fprintf(stderr, "Error: run_sealing\n");
+				run_ma_step_3_free(&eid, &ia);
+				SSL_shutdown(foossl.ssl);
+				foossl_client_destroy(&foossl);
+				return EXIT_FAILURE;
+			}
+
+			// write sealed data to disk
+			if (save_data(sealed_data, size, opts.output)) {
+				fprintf(stderr, "Error: writing sealed data to disk\n");
+				run_ma_step_3_free(&eid, &ia);
+				SSL_shutdown(foossl.ssl);
+				foossl_client_destroy(&foossl);
+				return EXIT_FAILURE;
+			}
+			fprintf(stdout, "Wrote sealed data to disk (file=%s)\n", opts.output);
+
 		}
 		run_ma_step_3_free(&eid, &ia);
 	}
@@ -952,29 +1086,24 @@ static int seal(int argc, char *argv[])
 
 static int unseal(int argc, char *argv[])
 {
-	if (argc < 3) {
-		fprintf(stderr, "$ hello unseal <host> <port>\n");
-		return EXIT_FAILURE;
-	}
-
-	const char *host = argv[1];
-	int port = atoi(argv[2]);
+	struct mainopts opts = parse_options(argc, argv);
+	printf("host=%s\nport=%d\nspid=%s\n", opts.host, opts.port, opts.spid);
 
 	// read sealed data from disk
 	uint8_t data[4096] = {0};
 	size_t size = 0;
-	if (load_data(data, sizeof(data), &size, SEALED_DATA_FILE)) {
+	if (load_data(data, sizeof(data), &size, opts.input)) {
 		fprintf(stderr, "Error: reading sealed data from disk\n");
 		return 1;
 	}
-	fprintf(stdout, "Read sealed data from disk (file=%s)\n", SEALED_DATA_FILE);
+	fprintf(stdout, "Read sealed data from disk (file=%s)\n", opts.input);
 
 	char unsealed_data[256] = {0};
 	size_t ud_len = 0;
 
 	struct foossl_client_st foossl;
 
-	if (foossl_client_connect(&foossl, host, port)) {
+	if (foossl_client_connect(&foossl, opts.host, opts.port)) {
 		perror("unable to open secure connection to remote server");
 		foossl_client_destroy(&foossl);
 		return -1;
@@ -985,9 +1114,11 @@ static int unseal(int argc, char *argv[])
 	sgx_enclave_id_t eid = {0};
 	struct ipas_attest_st ia = {0};
 
-	if (!run_ma_step_1_init(&eid, &ia)) {
+	if (!run_ma_step_1_init(&eid, &ia, opts.spid)) {
 		if (!run_ma_step_2_execute(&ia, foossl.ssl)) {
-			int r = run_unsealing(&eid, foossl.ssl, data, size, unsealed_data, sizeof(unsealed_data), &ud_len);
+			int r = run_unsealing(&eid, foossl.ssl,
+					data, size,
+					unsealed_data, sizeof(unsealed_data), &ud_len);
 
 			// do something with the unsealed data
 			if (!r) {
@@ -1024,13 +1155,13 @@ int main(int argc, char *argv[])
 	printf("%s\n", OPENSSL_VERSION_TEXT);
 
 	if (argc < 2) {
-		fprintf(stderr, "Bad argc\n");
+		fprintf(stderr, "Bad argc, try 'hello help'\n");
 		return EXIT_FAILURE;
 	}
 
 	const char *op_str = argv[1];
 	if (!strcasecmp(op_str, "help")) {
-		return help();
+		return help(0);
 	} else if (!strcasecmp(op_str, "ma")) {
 		return attest(--argc, ++argv);
 	} else if (!strcasecmp(op_str, "seal")) {
@@ -1040,7 +1171,7 @@ int main(int argc, char *argv[])
 	} else if (!strcasecmp(op_str, "version")) {
 		return version();
 	} else {
-		fprintf(stderr, "No match, else'd out of it\n");
+		fprintf(stderr, "No match, else'd out of it, try 'hello help'\n");
 		return EXIT_FAILURE;
 	}
 }

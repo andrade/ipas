@@ -33,19 +33,20 @@ static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *
 // // TEMP TORM
 // static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *sep);
 
-int ipas_ma_init_dynamic(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role)
+int ipas_ma_init_dynamic(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role, const char *spid)
 {
 	ia->sid = sid;
 	ia->eid = eid;
 	ia->udso = uh;
 	ia->role = role;
+	l1_hstr_to_u8(sizeof(ia->spid.id), ia->spid.id, strlen(spid), spid);
 
 	return 0;
 }
 
-int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, enum role role)
+int ipas_ma_init(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, enum role role, const char *spid)
 {
-	return ipas_ma_init_dynamic(ia, sid, eid, NULL, role);
+	return ipas_ma_init_dynamic(ia, sid, eid, NULL, role, spid);
 }
 
 int ipas_ma_free(struct ipas_attest_st *ia)
@@ -263,16 +264,12 @@ int ipas_ma_get_m3(struct ipas_attest_st *ia,
 	// memset(p3->quote_a, 0, quote_size);
 
 	int busy_retry = 5; // must be >0
-	const char *s = "** ESCONDIDO **";
-	sgx_spid_t spid;
-	l1_hstr_to_u8(sizeof(spid.id), spid.id, strlen(s), s);
-	//** ESCONDIDO **
 	sgx_quote_nonce_t quote_nonce = {0};
 	// memcpy(&quote_nonce, nonce, 16); // In enclave ??
 	sgx_report_t qe_report;
 	memset(&qe_report, 0, sizeof(qe_report));
 	do {
-		ss = sgx_get_quote(&report, SGX_UNLINKABLE_SIGNATURE, &spid, &quote_nonce, ia->length_a ? ia->srl_a : NULL, ia->length_a, &qe_report, (sgx_quote_t *) m3->quote_a, quote_size);
+		ss = sgx_get_quote(&report, SGX_UNLINKABLE_SIGNATURE, &ia->spid, &quote_nonce, ia->length_a ? ia->srl_a : NULL, ia->length_a, &qe_report, (sgx_quote_t *) m3->quote_a, quote_size);
 		if (ss)
 			sleep(2);
 	} while (ss == SGX_ERROR_BUSY && --busy_retry);
@@ -334,16 +331,12 @@ int ipas_ma_get_p3(struct ipas_attest_st *ia, struct ipas_ma_m3 *m3, struct ipas
 	memset(&p3->quote_b, 0, sizeof(p3->quote_b));
 
 	int busy_retry = 5; // must be >0
-	const char *s = "** ESCONDIDO **";
-	sgx_spid_t spid;
-	l1_hstr_to_u8(sizeof(spid.id), spid.id, strlen(s), s);
-	//** ESCONDIDO **
 	sgx_quote_nonce_t quote_nonce = {0};
 	// memcpy(&quote_nonce, nonce, 16); // FIXME gerar nonce dentro enclave na ecall anterior? (antes era assim que fazia antes de mudar nome da ecall)
 	sgx_report_t qe_report;
 	memset(&qe_report, 0, sizeof(qe_report));
 	do {
-		ss = sgx_get_quote(&report, SGX_UNLINKABLE_SIGNATURE, &spid, &quote_nonce, ia->length_b ? ia->srl_b : NULL, ia->length_b, &qe_report, (sgx_quote_t *) p3->quote_b, quote_size);
+		ss = sgx_get_quote(&report, SGX_UNLINKABLE_SIGNATURE, &ia->spid, &quote_nonce, ia->length_b ? ia->srl_b : NULL, ia->length_b, &qe_report, (sgx_quote_t *) p3->quote_b, quote_size);
 		if (ss)
 			sleep(2);
 	} while (ss == SGX_ERROR_BUSY && --busy_retry);
