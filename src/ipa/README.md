@@ -2,19 +2,18 @@
 
 ### Prerequisites
 
-* Intel SGX SDK and respective toolchain (needs `sgx_edger8r`)
-	* The path to the framework (`$SGX_SDK`) should be set
-* A C development environment
-	* For compiling the source code and creating the library using the makefile
+- An [Intel SGX](https://github.com/intel/linux-sgx) development environment including [Intel SGX SSL](https://github.com/intel/intel-sgx-ssl)
+
+- An [IPAS](https://github.com/andrade/ipas) development environment
+
+- OpenSSL 1.1.1 (from Ubuntu 18.04 repositories will do)
+
+- usgx
 
 ### Compiling
 
 * Compile the library with `$ make`
 * Clean all generated files with with `$ make clean`
-
-NOTE: IPS is independent of the rest so must be compiled and cleaned on its own.
-
-Compile IPS with `$ make IPAS_STRICT_MR=1` to bind the sealing key to MRENCLAVE (default off, binds to MRSIGNER).
 
 ### Installing
 
@@ -22,27 +21,15 @@ TODO
 
 ### Using
 
-To use the library ~~without installing it~~:
+<!-- To use the library ~~without installing it~~: -->
 
 TODO
 
 ## Project Layout
 
 ```
-cas/
-├── include
-│   └── ipas                            # public API
-│       ├── t                           # trusted headers
-│           ├── attestation.h
-│           └── sealing.h
-│       ├── u                           # untrusted headers
-│           ├── attestation.h
-│           └── sealing.h
-│       ├── *.edl                       # EDL interfaces
-│       └── *.h                         # common interfaces
-│
+ipa/
 ├── src
-│   ├── ips/                            # IPS library, TODO: move outside CAS
 │   ├── t                               # trusted source code
 │       ├── *.c                         # implementation of trusted code
 │       └── *.h                         # internal trusted headers
@@ -52,7 +39,3 @@ cas/
 ├── Makefile
 └── README.md                           # this file
 ```
-
-## License
-
-TODO

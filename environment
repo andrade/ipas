@@ -1,8 +1,2 @@
-export SGX_SDK=$HOME/.local/lib/x86_64-linux-gnu/sgxsdk
-export SGX_SSL=$HOME/.local/lib/x86_64-linux-gnu/sgxssl
-
-export FOOSSL_INCLUDE=$HOME/vc/foossl/include
-export FOOSSL_LIBRARY=$HOME/vc/foossl/static
-export USGX_HOME=$HOME/vc/usgx
-
 export IPAS_HOME=$HOME/w/main/20A1/vc/ipas
+export PATH=$PATH:$IPAS_HOME/bin
