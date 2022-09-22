@@ -14,10 +14,10 @@
 #include <usgx/c/bytes.h>
 #include <usgx/libc/stdio.h>
 
-#include "ipas/debug.h"
 #include "ipas/errors.h"
 #include "ipas/t/attestation.h"
 
+#include "../debug.h"
 #include "cdecode.h"
 #include "cJSON.h"
 #include "perdec.h"

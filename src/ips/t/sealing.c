@@ -15,10 +15,11 @@
 #include <sgx_tseal.h>
 #include <sgx_utils.h>
 
-#include "ipas/debug.h"
 #include "ipas/errors.h"
 #include "ipas/t/attestation.h"
 #include "ipas/t/sealing.h"
+
+#include "../c/debug.h"
 
 /** Length in bytes of part of ipas_seal_data to use as part of AD. **/
 static const uint32_t const SD_FIRST_BLOCK = 692;

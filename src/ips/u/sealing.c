@@ -11,8 +11,8 @@
 #include "ipas/errors.h"
 #include "ipas/u/sealing.h"
 
+#include "../c/debug.h"
 #include "sealing_u.h"
-#include "debug.h"
 
 int ipas_s_get_m1(sgx_enclave_id_t eid, uint32_t sid, struct ipas_s_m1 *m1)
 {
