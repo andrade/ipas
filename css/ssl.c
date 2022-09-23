@@ -47,10 +47,6 @@ int ssl_handle_request(SSL *ssl, int (*f)(uint8_t *, uint32_t, uint32_t *, const
 		return finalize(1);
 	}
 
-	// char dest[4096] = {0};
-	// u8_to_str(dest, buf, len, "");
-	// fprintf(stderr, "%s\n", dest);
-
 	// write message length
 	len = htonl(len);
 	if (foossl_sexact(ssl, &len, sizeof(len))) {

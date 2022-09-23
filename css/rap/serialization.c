@@ -193,44 +193,6 @@ static int json_to_ra_avr(struct ra_avr *avr, const char *input, int len)
 	return 0;
 }
 
-
-
-
-
-// onebuf h/c: create, delete, clear, enlarge, shrink
-//TODO onebuf mini-lib: h,c for now ?
-
-/*
-struct cereal_buf *create_cereal_buf(size_t cap)
-{
-	uint8_t *a = malloc(cap);
-	if (!cap) {
-		return NULL;
-	}
-
-	struct cereal_buf *p = malloc(sizeof(struct cereal_buf));
-	if (!p) {
-		free(a);
-		return NULL;
-	}
-
-	p->buf = a;
-	p->len = 0;
-	p->cap = cap;
-
-	return p;
-}
-
-void delete_cereal_buf(struct cereal_buf *p)
-{
-	free(p->buf);
-	free(p);
-}
-*/
-
-
-
-
 // need free .str or done by lib ?
 static struct capn_text gid_to_text(sgx_epid_group_id_t gid) {
 	char *s = malloc(8 + 1);
@@ -271,89 +233,6 @@ static struct capn_text nonce_to_text(sgx_quote_nonce_t nonce) {
 	};
 }
 
-// TEMP trouxe para aqui do attestation, para eliminar...
-size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *sep)
-{
-	if (len == 0) {
-		return 0;
-	}
-
-	size_t total = len * 2 + (len - 1) * strlen(sep);
-	//FIXME não é preciso +1 para NUL ?
-	// return value is the number of characters (excluding the terminating null  byte) (Check return in snprintf man page!!) TODO
-
-	if (dest == NULL) {
-		return total;
-	}
-
-	char *next_pos;
-	for (size_t i = 0; i < len - 1; i++) {
-		next_pos = dest + i * 2 + i * strlen(sep);
-		sprintf(next_pos, "%02"PRIx8"%s", src[i], sep);
-	}
-	next_pos = dest + (len - 1) * 2 + (len - 1) * strlen(sep);
-	sprintf(next_pos, "%02"PRIx8, src[len - 1]);
-
-	return strlen(dest);
-}
-
-/*
-// REVIEW buffer length should be uint32_t... check here for out of bounds down/up
-int encode_request_sigrl_old_1(uint8_t *a, size_t cap, uint32_t *n, sgx_epid_group_id_t gid)
-{
-	struct capn c;
-	capn_init_malloc(&c);
-	capn_ptr cr = capn_root(&c);
-	struct capn_segment *cs = cr.seg;
-
-	struct RequestSigrl request = {
-		.gid = gid_to_text(gid),
-	};
-	fprintf(stderr, "in lib, gid: %s (%d)\n", request.gid.str, request.gid.len);
-
-	RequestSigrl_ptr p = new_RequestSigrl(cs);
-	write_RequestSigrl(&request, p);
-	int setp_ret = capn_setp(capn_root(&c), 0, p.p);
-
-	int64_t len = capn_write_mem(&c, a, cap, 0);
-	// *n = capn_write_mem(&c, a, cap, 0);
-	capn_free(&c);
-	if (len < 0 || len > UINT32_MAX) {
-		fprintf(stderr, "capn_write_mem length does not fit in uint32_t\n");
-		return 1;
-	}
-	*n = len;
-
-	char dest[4096] = {0};
-	u8_to_str(dest, a, *n, " ");
-	fprintf(stderr, "buffer in encode_request_sigrl: %s\n", dest);
-
-	return 0;
-}
-
-static int create_request_sigrl_structure(RequestSigrl_ptr *p, sgx_epid_group_id_t gid)
-{
-	struct capn c;
-	capn_init_malloc(&c);
-	capn_ptr cr = capn_root(&c);
-	struct capn_segment *cs = cr.seg;
-
-	struct RequestSigrl request = {
-		.gid = gid_to_text(gid),
-	};
-	fprintf(stderr, "in lib, gid: %s (%d)\n", request.gid.str, request.gid.len);
-
-	// RequestSigrl_ptr p = new_RequestSigrl(cs);
-	*p = new_RequestSigrl(cs);
-	write_RequestSigrl(&request, *p);
-	int setp_ret = capn_setp(capn_root(&c), 0, p->p);
-
-	return 0;
-}
-*/
-
-//-----------------------
-
 // cap must be at least 12, otherwise UB
 char *sgx_epid_group_id_to_str(char *dest, size_t cap, sgx_epid_group_id_t *gid)
 {
@@ -373,7 +252,6 @@ char *sgx_epid_group_id_to_str(char *dest, size_t cap, sgx_epid_group_id_t *gid)
 	return dest;
 }
 
-// int encode_request_sigrl(uint8_t *a, size_t cap, uint32_t *n, sgx_epid_group_id_t gid)
 int rap_encode_request_sigrl(uint8_t *a, size_t cap, uint32_t *n, struct ra_sigrl *data)
 {
 	// reverse Group ID
@@ -426,65 +304,6 @@ int rap_encode_request_sigrl(uint8_t *a, size_t cap, uint32_t *n, struct ra_sigr
 		return 1;
 	}
 	*n = len;
-
-
-
-	/*
-
-	// create RequestSigrl structure
-
-	struct RequestSigrl request = {
-		.gid = gid_to_text(gid),
-	};
-	fprintf(stderr, "in lib, gid: %s (%d)\n", request.gid.str, request.gid.len);
-
-	struct capn c;
-	capn_init_malloc(&c);
-	capn_ptr cr = capn_root(&c);
-	struct capn_segment *cs = cr.seg;
-	// struct capn c1;
-	// capn_init_malloc(&c1);
-	// capn_ptr cr1 = capn_root(&c1);
-	// struct capn_segment *cs1 = cr1.seg;
-	RequestSigrl_ptr p1 = new_RequestSigrl(cs);
-	write_RequestSigrl(&request, p1);
-	// int setp_ret = capn_setp(capn_root(&c), 0, p.p);
-	//
-	// int64_t len = capn_write_mem(&c, a, cap, 0);
-	// // *n = capn_write_mem(&c, a, cap, 0);
-	// capn_free(&c);
-
-
-	// create Message structure
-	// struct capn c;
-	// capn_init_malloc(&c);
-	// capn_ptr cr = capn_root(&c);
-	// struct capn_segment *cs = cr.seg;
-
-	struct Message message = {
-		.which = Message_requestSigrl,
-		.requestSigrl = p1,
-	};
-
-	Message_ptr p = new_Message(cs);
-	write_Message(&request, p);
-	int setp_ret = capn_setp(capn_root(&c), 0, p.p);
-
-	int64_t len = capn_write_mem(&c, a, cap, 0);
-	// *n = capn_write_mem(&c, a, cap, 0);
-	capn_free(&c);
-	if (len < 0 || len > UINT32_MAX) {
-		fprintf(stderr, "capn_write_mem length does not fit in uint32_t\n");
-		return 1;
-	}
-	*n = len;
-
-
-	*/
-
-	char dest[4096] = {0};
-	u8_to_str(dest, a, *n, " ");
-	fprintf(stderr, "buffer in encode_request_sigrl: %s\n", dest);
 
 	return 0;
 }

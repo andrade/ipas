@@ -78,17 +78,12 @@ src/u/attestation_u.c src/u/attestation_u.h: $(IPAS_INC_DIR)/ipas/attestation.ed
 	@echo "GEN   ·  $^  >  $@"
 
 src/u/attestation.o: $(IPAS_INC_DIR)/ipas/u/attestation.h src/u/attestation_u.h
-#src/u/rap.capnp.c src/u/rap.capnp.h src/u/serialization.[ch]
-#src/u/attestation.o: src/u/attestation_u.h
-
-#src/u/rap.capnp.o: src/u/rap.capnp.c src/u/rap.capnp.h
 
 src/u/%.o: src/u/%.c
 	@$(CC) $(ULIB_CFLAGS) -c $< -o $@
 	@echo "CC    ·  $^  >  $@"
 
 libipas-attestation-normal.a: src/u/attestation.o src/u/attestation_u.o src/u/one.o src/u/sgx_print.o
-#src/u/rap.capnp.o src/u/cencode.o src/u/cdecode.o src/u/base64.o src/u/serialization.o src/u/network.o
 	@ar rcs $@ $^
 	$(call GOOD,,"GEN   ·  ","$^  >  $@")
 
@@ -115,21 +110,13 @@ libipas-attestation-secure.a: src/t/attestation.o src/t/attestation_t.o src/t/cd
 	@ar rcs $@ $^
 	$(call GOOD,,"GEN   ·  ","$^  >  $@")
 
-#                            Cap'n Proto                            #
-
-#src/u/rap.capnp.c src/u/rap.capnp.h: schema/rap.capnp
-#	capnp compile -o c schema/rap.capnp
-#	mv schema/rap.capnp.[ch] src/u/
-
 #                          MAINTENANCE                          #
 
 .PHONY: clean
 
 TRASH := \
-		src/u/rap.capnp.[ch] \
 		src/u/attestation_u.h src/u/attestation_u.c src/u/attestation_u.o \
 		src/u/one.o src/u/sgx_print.o \
-		src/u/rap.capnp.o \
 		src/u/cencode.o src/u/cdecode.o src/u/base64.o \
 		src/u/serialization.o src/u/network.o \
 		src/u/attestation.o \

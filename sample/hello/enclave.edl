@@ -4,7 +4,6 @@ enclave {
 
 	from "ipas/attestation.edl" import *;
 	from "ipas/sealing.edl" import *;
-	// from "ipas/attestation.edl" import ipa_m67, ipa_m89, ipa_m1112, test_rap_get_report, ipas_ma_validate_reports, ipas_ma_process_m6;
 
 	trusted {
 

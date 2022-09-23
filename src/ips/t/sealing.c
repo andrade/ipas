@@ -6,9 +6,6 @@
 #include <stdbool.h>
 
 #include <usgx/libc/stdio.h> // import from stdio.h with usgx prefix
-// // #include <usgx/t/util.h> // import from stdio.h with usgx prefix
-// // #include <usgx/usgx.h>
-// #include "sealing_t.h"
 
 #include <sgx_trts.h>
 #include <sgx_tcrypto.h>

@@ -2,8 +2,6 @@
 
 #include <sgx_trts.h>
 
-// #include "usgx/t/util.h"
-
 #include "enclave_t.h"
 
 /**

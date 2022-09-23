@@ -36,10 +36,6 @@ struct ipas_attest_st {
 	uint32_t length_b;
 	uint8_t srl_a[IPAS_SRL_RSP_B_SIZE];
 	uint8_t srl_b[IPAS_SRL_RSP_B_SIZE];
-
-	// sgx_ec256_public_t pub_a;
-	// sgx_ec256_public_t pub_b;
-	// acho que não preciso guardar cá fora estes dois! Se for preciso acrescenta-se!
 };
 
 // Message 1
@@ -117,9 +113,6 @@ struct ipas_ma_p4 {
 	char sig_b[1024];
 	char cc_b[4096];
 	char report_b[4096];                // BReport
-
-	// char eqs_a[64];
-	// char eqs_b[64];
 };
 // fields as returned by IAS
 
@@ -137,9 +130,6 @@ struct ipas_ma_m4 {
 	char sig_b[1024];
 	char cc_b[4096];
 	char report_b[4096];                // BReport
-
-	// char eqs_a[64];
-	// char eqs_b[64];
 
 	uint8_t data[64];           // em vez de status, mais flexível
 	// uint32_t size;  // sem size porque passo *sempre* os 64 bytes

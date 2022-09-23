@@ -1,7 +1,6 @@
 CC := gcc
 EDGER := sgx_edger8r
 
-# root dir pode vir de variável, ou de ficheiro buildenv.mk na root?
 IPAS_HOME ?=
 ifndef IPAS_HOME
 $(error IPAS_HOME is not set)

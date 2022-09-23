@@ -1,7 +1,6 @@
 enclave {
 
 	from "usgx/usgx.edl" import *;
-	// from "usgx/libc/stdio.edl" import *;
 
 	include "sgx_tcrypto.h"
 	include "ipas/errors.h"

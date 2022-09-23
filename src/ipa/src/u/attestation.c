@@ -20,19 +20,8 @@
 #include "one.h"
 #include "sgx_print.h"
 
-// #include "serialization.h"
-
-// #include "rap.capnp.h" // temp
-
-
-
 // TORM
 static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *sep);
-
-
-
-// // TEMP TORM
-// static size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *sep);
 
 int ipas_ma_init_dynamic(struct ipas_attest_st *ia, uint32_t sid, sgx_enclave_id_t eid, void *uh, enum role role, const char *spid)
 {
@@ -174,7 +163,6 @@ int ipas_ma_get_m2(struct ipas_attest_st *ia, struct ipas_ma_p2 *p2, struct ipas
 	ipas_status er;
 	sgx_ec256_public_t public;
 	uint8_t nonce[16];
-	// sgx_status_t ss = ipa_m89(ia->eid, &ecall_return, 2, &ia->qe_target_info, &public, nonce, &report);
 	if (ia->udso) {
 		sgx_status_t (*f_ipas_ma_create_keys)(sgx_enclave_id_t, ipas_status *, sgx_ec256_public_t *, uint8_t *, uint32_t, int);
 		*(void **) (&f_ipas_ma_create_keys) = dlsym(ia->udso, "ipas_ma_create_keys");
@@ -238,7 +226,6 @@ int ipas_ma_get_m3(struct ipas_attest_st *ia,
 	uint8_t nonce[16] = {0};
 	sgx_report_t report;
 	memset(&report, 0, sizeof(report));
-	// sgx_status_t ss = ipa_m1112(ia->eid, &ecall_return, 1, &ia->qe_target_info, nonce, &report);
 	sgx_status_t ss = ipas_ma_create_report(ia->eid, &ecall_return, &report, ia->sid, &ia->qe_target_info, &m2->pub_b);
 	// TODO tirei o nonce, mas este nonce é o quote_nonce ???? **********
 	if (SGX_SUCCESS != ss || ecall_return) {
@@ -869,9 +856,6 @@ void ipas_ma_dump_m4(struct ipas_ma_m4 *m4)
 
 
 
-void usgx_ocall_print(int stream, const char *str)
-{
-}
 
 
 

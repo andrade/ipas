@@ -7,7 +7,6 @@
 // #include <jansson.h>
 // #include "base64.h"
 
-#include "cebug.h"
 #include "debug.h"
 
 #include <ipas/u/attestation.h>
@@ -117,32 +116,6 @@ static char *c2scpy(char *dest, size_t cap, const capn_text *src) {
 // 	};
 // }
 
-// TEMP trouxe para aqui do attestation, para eliminar...
-size_t u8_to_str(char *dest, const uint8_t *src, size_t len, const char *sep)
-{
-	if (len == 0) {
-		return 0;
-	}
-
-	size_t total = len * 2 + (len - 1) * strlen(sep);
-	//FIXME não é preciso +1 para NUL ?
-	// return value is the number of characters (excluding the terminating null  byte) (Check return in snprintf man page!!) TODO
-
-	if (dest == NULL) {
-		return total;
-	}
-
-	char *next_pos;
-	for (size_t i = 0; i < len - 1; i++) {
-		next_pos = dest + i * 2 + i * strlen(sep);
-		sprintf(next_pos, "%02"PRIx8"%s", src[i], sep);
-	}
-	next_pos = dest + (len - 1) * 2 + (len - 1) * strlen(sep);
-	sprintf(next_pos, "%02"PRIx8, src[len - 1]);
-
-	return strlen(dest);
-}
-
 int encode_m1(uint8_t *output, size_t output_cap, uint32_t *output_len,
 		const uint8_t *enclave, size_t e_size,
 		const uint8_t *untrusted, size_t u_size,
@@ -214,10 +187,6 @@ int encode_m1(uint8_t *output, size_t output_cap, uint32_t *output_len,
 
 	// int total_size = capn_size(&ctx);
 	// printf("total_size=%d, write_mem=%"PRId64"\n", capn_size(&ctx), len);
-
-	// char dest[4096] = {0};
-	// u8_to_str(dest, output, len, "");
-	// fprintf(stderr, "%s\n", dest);
 
 	return 0;
 }
@@ -304,11 +273,6 @@ int encode_m3(uint8_t *output, size_t output_cap, uint32_t *output_len,
 		return 1;
 	}
 	*output_len = len;
-
-	// fprintf(stderr, "------- serialzed msg3:\n");
-	// char dest[4096] = {0};
-	// u8_to_str(dest, output, len, "");
-	// fprintf(stderr, "%s\n", dest);
 
 	return 0;
 }

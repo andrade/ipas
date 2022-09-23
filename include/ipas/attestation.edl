@@ -7,33 +7,11 @@ enclave {
 	include "ipas/errors.h"
 
 	trusted {
-		// /** Unable to compile without at least one public root ECALL. */
-		// public void usgx_ecall_dummy();
-		//
-		// // TORM obsolete
-		// // Get APublic, ANonce
-		// public int ipa_m67(uint32_t sid, [out] sgx_ec256_public_t *pub, [out] uint8_t nonce[16]);
-		//
-		// // TORM obsolete
-		// // Get BPublic, BNonce, BReport
-		// public int ipa_m89(uint32_t sid, [in] sgx_target_info_t *qe_target_info, [out] sgx_ec256_public_t *pub, [out] uint8_t nonce[16], [out] sgx_report_t *report);
-		// // REVIEW also [in] QE target?
-
-
 		// creates key pair and nonce
 		public ipas_status ipas_ma_create_keys([out] sgx_ec256_public_t *pub, [out, count=16] uint8_t *nonce, uint32_t sid, int role);
 
 		// computes report for local attestation with QE
 		public ipas_status ipas_ma_create_report([out] sgx_report_t *report, uint32_t sid, [in] sgx_target_info_t *qe_target_info, [in] sgx_ec256_public_t *peer_pub);
-
-
-		// // TORM obsolete
-		// // Get AReport
-		// public int ipa_m1112(uint32_t sid, [in] sgx_target_info_t *qe_target_info, [out] uint8_t nonce[16], [out] sgx_report_t *report);
-		//
-		// // TORM obsolete
-		// public int test_rap_get_report([in] sgx_target_info_t *qe_target, [out] sgx_report_t *report);
-
 
 		// validate reports received from IAS, and compute shared secret keys
 		public int ipas_ma_validate_reports(uint32_t sid,
@@ -56,11 +34,5 @@ enclave {
 	};
 
 	untrusted {
-		/**
-		** Writes the string to the given stream.
-		**
-		** The stream is either `1` for stdout or `2` for stderr.
-		**/
-		// void usgx_ocall_print(int stream, [in, string] const char *str);
 	};
 };

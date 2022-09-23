@@ -114,10 +114,6 @@ static int base64_decode(char *output, const char *input, int length)
 	return base64_decode_block(input, length, output, &s);
 }
 
-// void usgx_ecall_dummy()
-// {
-// }
-
 void *ipas_ma_get_key(uint32_t sid, int key_id)
 {
 	if (sid >= get_max_sessions()) {
@@ -140,123 +136,9 @@ void *ipas_ma_get_key(uint32_t sid, int key_id)
 
 
 
-
-int ipas_ma(uint8_t mk[static 16], uint8_t sk[static 16])
-{
-	// TODO Como sei para onde enviar as mensagens? Um passo inicial a passar um file descriptor para um túnel, talvez caller tem que implementar funções leitura/escrita? Temos função setup para isso? Talvez se entregue apenas a localização?
-	//
-	// Preciso assumir também, que do outro lado pode haver um protocolo complexo. Pelo que o ideal é entregarmos a mensagem a uma entidade controlada pelo caller, e depois o caller faz a entrega e vai buscar o resultado, e entrega-nos a nós o resultado. E depois esta função vai repetindo o processo até terminal.
-	// Assim havendo protocolo de comunicação complexo, ou que pode ser cleartext, TLS, etc; ou com diferentes formas de serialização, sabemos sempre que o caller lida com essa parte.
-	// E aqui temos duas partes: lidar com serialização de ipas_ma para ipas_ma, e aqui podemos fazer nós isso, e depois lidar com rede. Melhor é caller lidar com ambos os processors, e esta função e descendentes lidarem apenas com estruturas C e SGX; depois caller que se amanhe com serialização e rede. Para o projecto faço serialização/rede na mesma, mas assim fica mais flexível.
-	// De qualquer forma, serialização e rede não são tratados *dentro* do enclave, apenas no UC, pelo que esta função não lida com essa parte.
-	//
-	// Se endereços IP, etc, forem colocados no enclave.config.xml, pode-se ir lá buscar a info para a rede. Mas não é muito flexível.
-	// Talvez haja estrutura do IPAS com esta info, usada num setup inicial e passada a funções que tratam da rede.
-	return 0;
-}
-
-
-
-//
-// TODO convert all functions to correct naming with `_process_m3` etc
-// TODO switch to using internal `sessions` instead of ds.ch
-//
-// Acho que é suposto ipa_m67, etc, serem invocadas pelo IPAS UC de forma a esconder to utilizador.
-// Assim sendo, também devo esconder o ipas_ma_process_m5, etc? Teria wrapper ou que fosse preciso no IPAS UC. Assim caller tinha de criar enclave, mas nunca lidava directamente com funções do IPAS TC, era tudo feito via IPAS UC.
-// Update: Já está feito assim, as funções TC com process são invocadas por UC!
-//
-
-// Q: O que é guardado dentro do enclave, e o que é guardado em ia?
-
-
-
-// /**
-// ** Generates a key pair and a nonce for A.
-// **
-// ** [i]  sid:       Session ID
-// **
-// ** [o]  pub:       public key of A
-// ** [o]  nonce:     nonce of A
-// **
-// ** Returns zero on success, non-zero otherwise.
-// ** Status: IPAS_SUCCESS       all good
-// **         IPAS_BAD_SID       Session ID out of bounds
-// **         IPAS_FAILURE       internal error
-// **/
-// ipas_status ipa_m67(uint32_t sid, sgx_ec256_public_t *pub, uint8_t nonce[16])
+// int ipas_ma(uint8_t mk[static 16], uint8_t sk[static 16])
 // {
-// 	if (sid >= get_max_sessions()) {
-// 		return IPAS_BAD_SID;
-// 	}
-//
-// 	if (sgx_ecc256_open_context(&session[sid].ecc_handle)) {
-// 		return IPAS_FAILURE;
-// 	}
-// 	if (sgx_ecc256_create_key_pair(&session[sid].private, &session[sid].public, session[sid].ecc_handle)) {
-// 		sgx_ecc256_close_context(session[sid].ecc_handle);
-// 		return IPAS_FAILURE;
-// 	}
-//
-// 	if (sgx_read_rand(session[sid].nonce, 16)) {
-// 		sgx_ecc256_close_context(session[sid].ecc_handle);
-// 		return IPAS_FAILURE;
-// 	}
-//
-// 	memcpy(pub, &session[sid].public, sizeof(sgx_ec256_public_t));
-// 	memcpy(nonce, session[sid].nonce, 16);
-//
-// 	return IPAS_SUCCESS;
-// }
-//
-// // FIXME estou a guardar stack na DB, fix this! usar DB diretamente
-//
-// // Called in B
-// // get report, need QE target?
-// /**
-// ** Generates a key pair and a nonce for B. Computes report for LA.
-// **
-// ** [i]  sid:       Session ID
-// **
-// ** [o]  pub:       public key of A
-// ** [o]  nonce:     nonce of A
-// **
-// ** Returns zero on success, non-zero otherwise.
-// ** Status: IPAS_SUCCESS       all good
-// **         IPAS_BAD_SID       Session ID out of bounds
-// **         IPAS_FAILURE       internal error
-// **/
-// ipas_status ipa_m89(uint32_t sid, sgx_target_info_t *qe_target_info, sgx_ec256_public_t *pub, uint8_t nonce[16], sgx_report_t *report)
-// {
-// 	if (sid >= get_max_sessions()) {
-// 		return IPAS_BAD_SID;
-// 	}
-//
-// 	if (sgx_ecc256_open_context(&session[sid].ecc_handle)) {
-// 		return IPAS_FAILURE;
-// 	}
-// 	if (sgx_ecc256_create_key_pair(&session[sid].private, &session[sid].public, session[sid].ecc_handle)) {
-// 		sgx_ecc256_close_context(session[sid].ecc_handle);
-// 		return IPAS_FAILURE;
-// 	}
-//
-// 	if (sgx_read_rand(session[sid].nonce, 16)) {
-// 		sgx_ecc256_close_context(session[sid].ecc_handle);
-// 		return IPAS_FAILURE;
-// 	}
-//
-// 	memcpy(pub, &session[sid].public, sizeof(sgx_ec256_public_t));
-// 	memcpy(nonce, session[sid].nonce, 16);
-//
-// 	// get report for B:
-//
-// 	sgx_report_data_t report_data = {0};
-//
-// 	if (sgx_create_report(qe_target_info, &report_data, report)) {
-// 		sgx_ecc256_close_context(session[sid].ecc_handle);
-// 		return IPAS_FAILURE;
-// 	}
-//
-// 	return IPAS_SUCCESS;
+// 	return 0;
 // }
 
 
@@ -468,31 +350,6 @@ ipas_status ipas_ma_create_report(sgx_report_t *report, uint32_t sid, sgx_target
 
 
 
-// // Called in A
-// // get report
-// int ipa_m1112(uint32_t sid, sgx_target_info_t *qe_target_info, uint8_t nonce[16], sgx_report_t *report)
-// {
-// 	if (sid >= get_max_sessions()) {
-// 		return IPAS_BAD_SID;
-// 	}
-//
-// 	// retrieve key pair and nonce for A:
-//
-// 	sgx_ec256_public_t *public = get_public(sid);
-// 	memcpy(nonce, get_nonce(sid), 16);
-//
-// 	// get report for A:
-//
-// 	sgx_report_data_t report_data = {0};
-//
-// 	if (sgx_create_report(qe_target_info, &report_data, report)) {
-// 		return 6;
-// 	}
-//
-// 	return 0;
-// }
-// // WIP *******************
-//
 // // int ipas_attest_initiator(uint8_t *mk, uint8_t *sk, int (*read)(void *, size_t), int (*write)(void *, size_t))
 // // {
 // // 	return 0;
@@ -502,21 +359,6 @@ ipas_status ipas_ma_create_report(sgx_report_t *report, uint32_t sid, sgx_target
 // // {
 // // 	return 0;
 // // }
-
-
-
-// int test_rap_get_report(sgx_target_info_t *qe_target, sgx_report_t *report)
-// {
-// 	// sgx_report_data_t report_data = {0};
-// 	//
-// 	// if (sgx_create_report(qe_target, &report_data, report)) {
-// 	// 	return 6;
-// 	// }
-// 	//
-// 	// return 0;
-// 	return sgx_create_report(qe_target, NULL, report);
-// }
-
 
 
 

@@ -25,12 +25,9 @@
 #include <ipas/u/attestation.h>
 #include <ipas/u/sealing.h>
 
-#include "cebug.h"
 #include "debug.h"
 #include "ssl.h"
 
-// #include "rap/network.h"
-// #include "rap/ra_types.h"
 #include "rap/rap.h"
 
 #include "css.capnp.h"
@@ -301,11 +298,6 @@ static int process_m1(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 		return fail_m1(wbuf, wcap, wlen, NULL, CSSMessageStatus_failure);
 	}
 
-	// LOG("sizeof(enclave)=%d\n", m1q.enclave.p.len);
-	// LOG("sizeof(aPublic)=%d\n", m1q.aPublic.p.len);
-	// LOG("sizeof(aGroup)=%d\n", m1q.aGroup.p.len);
-	// LOG("sizeof(aExGroup)=%d\n", m1q.aExGroup.p.len);
-
 	// setup MA library
 	// struct ipas_attest_st ia = {0};
 	if (ipas_ma_init_dynamic(&ia, 2, eid, udso_h, ROLE_RESPONDER, spid)) {
@@ -342,18 +334,6 @@ static int process_m1(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 
 
 	// prepare reply:
-	/*
-	// Message 2
-	// sent from B to A
-	struct ipas_ma_m2 {
-		uint32_t egid_b;                    // BExGroup
-		sgx_ec256_public_t pub_b;           // BPublic
-
-		uint32_t status_a;          // HTTP status (e.g. "200" for OK)
-		uint32_t length_a;          // length of SigRL (only when status 200 OK)
-		uint8_t srl_a[IPAS_SRL_RSP_B_SIZE]; // ASigRL
-	};
-	*/
 
 	struct capn ctx;
 	capn_init_malloc(&ctx);
@@ -804,10 +784,6 @@ static int process_request(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, const u
 	read_CSSMessage(&m, root);
 
 	LOG("deserialized request, which index is: %d\n", m.which);
-
-	// char dest[4096] = {0};
-	// u8_to_str(dest, rbuf, rlen, "");
-	// fprintf(stderr, "%s\n", dest);
 
 	switch (m.which) {
 	case CSSMessage_m1:
