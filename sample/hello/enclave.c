@@ -60,7 +60,7 @@ int ecall_unseal_data(void *pt, uint32_t pt_cap, uint32_t *pt_len,
 	uint8_t ad[32] = {0};
 
 	// return ipas_unseal_data(&pt_len, pt, &ad_len, ad, size, data);
-	if (ipas_unseal_data(&pt_len, pt, &ad_len, ad, size, data)) {
+	if (ipas_unseal_data(pt_len, pt, &ad_len, ad, size, data)) {
 		return 3;
 	}
 
