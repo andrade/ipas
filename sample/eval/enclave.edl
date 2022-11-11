@@ -1,0 +1,26 @@
+enclave {
+
+	include "stdint.h"
+
+	from "ipas/attestation.edl" import *;
+	from "ipas/sealing.edl" import *;
+
+	trusted {
+
+		public int ecall_seal_data(
+			[out, size=capacity] void *data, uint32_t capacity,
+			[out] uint32_t *size,
+			[in, size=toseal_size] const void *toseal, uint32_t toseal_size
+		);
+
+		public int ecall_unseal_data(
+			[out, size=pt_cap] void *pt, uint32_t pt_cap,
+			[out] uint32_t *pt_len,
+			[in, size=size] const void *data, uint32_t size
+		);
+
+	};
+	untrusted {
+		void dump_str([in, string] const char *str);
+	};
+};
