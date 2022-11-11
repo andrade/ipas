@@ -18,6 +18,7 @@
 #include <ipas/u/attestation.h>
 #include <ipas/u/sealing.h>
 
+#include "debug.h"
 #include "disk.h"
 #include "network.h"
 #include "serialization.h"
@@ -216,8 +217,8 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 		fprintf(stderr, "Error: m1 <> m2\n");
 		goto error;
 	}
-	fprintf(stdout, "> Message 1\n");
-	fprintf(stdout, "< Message 2\n");
+	LOG("> Message 1\n");
+	LOG("< Message 2\n");
 
 	// deserialize m2
 	struct ipas_ma_m2 m2 = {0};
@@ -245,8 +246,8 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 		fprintf(stderr, "Error: m3 <> m4\n");
 		goto error;
 	}
-	fprintf(stdout, "> Message 3\n");
-	fprintf(stdout, "< Message 4\n");
+	LOG("> Message 3\n");
+	LOG("< Message 4\n");
 
 	// deserialize m4
 	struct ipas_ma_m4 m4 = {0};
@@ -319,8 +320,8 @@ static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
 		fprintf(stderr, "Error: m1 <> m2\n");
 		return 0xE2;
 	}
-	fprintf(stdout, "> Message 1\n");
-	fprintf(stdout, "< Message 2\n");
+	LOG("> Message 1\n");
+	LOG("< Message 2\n");
 
 	// deserialize m2
 	struct ipas_s_m2 m2 = {0};
@@ -345,7 +346,7 @@ static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
 		fprintf(stderr, "Error: ecall_seal_data (ss=0x%"PRIx32", is=%"PRIu32")\n", ss, r);
 		return 0xE3;
 	}
-	fprintf(stdout, "ecall_seal_data: OK\n");
+	LOG("ecall_seal_data: OK\n");
 
 	return 0;
 }
@@ -393,8 +394,8 @@ static int run_unsealing(sgx_enclave_id_t *eid, SSL *ssl,
 		fprintf(stderr, "Error: m1 <> m2\n");
 		return 0xE2;
 	}
-	fprintf(stdout, "> Message 1\n");
-	fprintf(stdout, "< Message 2\n");
+	LOG("> Message 1\n");
+	LOG("< Message 2\n");
 
 	// deserialize m2
 	struct ipas_u_m2 m2 = {0};
@@ -419,7 +420,7 @@ static int run_unsealing(sgx_enclave_id_t *eid, SSL *ssl,
 		fprintf(stderr, "Error: ecall_unseal_data (ss=0x%"PRIx32", is=%"PRIu32")\n", ss, r);
 		return 0xE3;
 	}
-	fprintf(stdout, "ecall_unseal_data: OK\n");
+	LOG("ecall_unseal_data: OK\n");
 
 	return 0;
 }
