@@ -225,7 +225,7 @@ ipas_status ipas_s_process_m2(
 	}
 
 	char tb[512] = {0};
-	printf("$mk = {%s}\n", b2s(tb, sizeof(tb), mk, sizeof(*mk), "", ":", ""));
+	LOG("$mk = {%s}\n", b2s(tb, sizeof(tb), mk, sizeof(*mk), "", ":", ""));
 
 	sgx_cmac_state_handle_t cmac_handle = {0};
 	sgx_cmac_128bit_tag_t temp_mac = {0};
@@ -240,9 +240,9 @@ ipas_status ipas_s_process_m2(
 	}
 	sgx_cmac128_close(cmac_handle);
 
-	printf("Received MAC = {%s}\n", b2s(tb, sizeof(tb), mac, sizeof(sgx_cmac_128bit_tag_t), NULL, ":", NULL));
+	LOG("Received MAC = {%s}\n", b2s(tb, sizeof(tb), mac, sizeof(sgx_cmac_128bit_tag_t), NULL, ":", NULL));
 
-	printf("Computed MAC = {%s}\n", b2s(tb, sizeof(tb), &temp_mac, sizeof(sgx_cmac_128bit_tag_t), NULL, ":", NULL));
+	LOG("Computed MAC = {%s}\n", b2s(tb, sizeof(tb), &temp_mac, sizeof(sgx_cmac_128bit_tag_t), NULL, ":", NULL));
 
 	if (memcmp(mac, &temp_mac, 16)) {
 		return IPAS_BAD_TAG;

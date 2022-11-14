@@ -246,7 +246,7 @@ int ipas_ma_get_m3(struct ipas_attest_st *ia,
 	if (sizeof(m3->quote_a) < quote_size) {
 		return 40;
 	}
-	fprintf(stderr, "sizeof(m3->quote_a)=%zu, quote_size=%"PRIu32"\n", sizeof(m3->quote_a), quote_size);
+	// fprintf(stderr, "sizeof(m3->quote_a)=%zu, quote_size=%"PRIu32"\n", sizeof(m3->quote_a), quote_size);
 	memset(&m3->quote_a, 0, sizeof(m3->quote_a));
 	// p3->quote_a = malloc(quote_size);
 	// memset(p3->quote_a, 0, quote_size);
