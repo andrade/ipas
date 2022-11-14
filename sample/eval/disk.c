@@ -68,7 +68,7 @@ int load_data(void *data, size_t capacity, size_t *size, const char *path)
 		goto finally;
 	}
 
-	if (fread(data, file_size, 1, fp) != 1) {
+	if (file_size > 0 && fread(data, file_size, 1, fp) != 1) {
 		fprintf(stderr, "fread(), failure\n");
 		ret = EXIT_FAILURE;
 		goto finally;
@@ -97,7 +97,7 @@ int save_data(const void *data, size_t size, const char *path)
 
 	int ret = EXIT_SUCCESS;
 
-	if (fwrite(data, size, 1, fp) != 1) {
+	if (size > 0 && fwrite(data, size, 1, fp) != 1) {
 		fprintf(stderr, "fwrite(), failure\n");
 		ret = EXIT_FAILURE;
 	}
