@@ -54,7 +54,7 @@ static int create_enclave(sgx_enclave_id_t *eid)
 		fprintf(stderr, "app error %#x, failed to create enclave\n", ss);
 		return 1;
 	}
-	fprintf(stdout, "sgx_create_enclave(): success (eid=%"PRIu64")\n", *eid);
+	LOG("sgx_create_enclave(): success (eid=%"PRIu64")\n", *eid);
 
 	return 0;
 }
@@ -65,7 +65,7 @@ static int destroy_enclave(sgx_enclave_id_t *eid)
 		fprintf(stderr, "sgx_destroy_enclave(): failure\n");
 		return 1;
 	}
-	fprintf(stdout, "sgx_destroy_enclave(): success\n");
+	LOG("sgx_destroy_enclave(): success\n");
 
 	return 0;
 }
