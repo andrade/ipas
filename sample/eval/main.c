@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 201112L
+
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -8,6 +10,9 @@
 #include <unistd.h>                     // getopt()
 #include <arpa/inet.h>
 #include <getopt.h>
+#if defined (EVALUATE)
+#include <time.h>                       // clock_gettime()
+#endif
 
 #include <foossl_client.h>
 #include <foossl_common.h>
@@ -32,6 +37,12 @@
 /** Default filename for sealed data. */
 static const char SEALED_DATA_FILE[] = "sealed.sd";
 
+#if defined (EVALUATE)
+static clockid_t clock_id = CLOCK_PROCESS_CPUTIME_ID;
+static struct timespec begin, end, result;
+static int ret_begin, ret_end;
+#endif
+
 // command-line options are stored in this structure, then fed to run functions
 struct mainopts {
 	const char *host;       // CSS host
@@ -41,6 +52,31 @@ struct mainopts {
 	const char *sealed;     // path for writing and reading the sealed data file
 	const char *output;     // path for storing the plaintext file
 };
+
+#if defined (EVALUATE)
+static struct timespec clock_diff(struct timespec *begin, struct timespec *end)
+{
+	struct timespec result = {0};
+
+	if (begin->tv_nsec > end->tv_nsec) {
+		result.tv_nsec = (1000000000 - begin->tv_nsec) + end->tv_nsec;
+		result.tv_sec = (end->tv_sec - begin->tv_sec) - 1;
+	} else {
+		result.tv_nsec = end->tv_nsec - begin->tv_nsec;
+		result.tv_sec = end->tv_sec - begin->tv_sec;
+	}
+
+	return result;
+}
+
+static void clock_print(struct timespec *tp)
+{
+	long long secs = tp->tv_sec;
+	long nsecs = tp->tv_nsec;
+
+	printf("%4lld.%.9ld\n", secs, nsecs);
+}
+#endif
 
 static int create_enclave(sgx_enclave_id_t *eid)
 {
@@ -172,6 +208,12 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 	}
 	uint32_t length;
 
+#if defined (EVAL_MA)
+	printf("Measuring 3 iterations of MA protocol...\n");
+	ret_begin = clock_gettime(clock_id, &begin);
+for (size_t i = 0; i < 3; i++) {
+#endif
+
 	// get m1 in A (initiator)
 	struct ipas_ma_m1 m1 = {0};
 	if (ipas_ma_get_m1(ia, &m1)) {
@@ -190,6 +232,7 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 	size_t tdso_size = 0;
 	if (load_data(tdso, tdso_max, &tdso_size, "enclave.signed.so")) {
 		fprintf(stderr, "Error: loading enclave\n");
+		free(tdso);
 		goto error;
 	}
 
@@ -198,6 +241,7 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 	size_t udso_size = 0;
 	if (load_data(udso, sizeof(udso), &udso_size, "untrusted.so")) {
 		fprintf(stderr, "Error: loading untrusted shared library\n");
+		free(tdso);
 		goto error;
 	}
 
@@ -209,8 +253,12 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 			&m1.gid_a, sizeof(m1.gid_a),
 			&m1.pub_a, sizeof(m1.pub_a))) {
 		fprintf(stderr, "Error: encode_m1\n");
+		free(tdso);
 		goto error;
 	}
+
+	free(tdso);
+	tdso = NULL;
 
 	// send m1 to B (responder) and receive m2
 	if (ne(buffer, bsz, &length, ssl, buffer, length)) {
@@ -262,12 +310,22 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 		goto error;
 	}
 
+#if defined (EVAL_MA)
+}
+	ret_end = clock_gettime(clock_id, &end);
+
+	if (ret_begin || ret_end) {
+		fprintf(stderr, "Error measuring execution time\n");
+		return 0xBC;
+	}
+	result = clock_diff(&begin, &end);
+	clock_print(&result);
+#endif
+
 	free(buffer);
-	free(tdso);
 	return 0;
 error:
 	free(buffer);
-	free(tdso);
 	return 0xE2;
 }
 
@@ -301,6 +359,12 @@ static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
 {
 	uint8_t buffer[1024] = {0};
 	uint32_t length;
+
+#if defined (EVAL_SEALING)
+	printf("Measuring 1K iterations of sealing protocol setup...\n");
+	ret_begin = clock_gettime(clock_id, &begin);
+for (size_t i = 0; i < 1000; i++) {
+#endif
 
 	// get m1 (=m11 in CSS specification) in A (initiator)
 	struct ipas_s_m1 m1 = {0};
@@ -336,6 +400,24 @@ static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
 		return 0xE2;
 	}
 
+#if defined (EVAL_SEALING)
+}
+	ret_end = clock_gettime(clock_id, &end);
+
+	if (ret_begin || ret_end) {
+		fprintf(stderr, "Error measuring execution time\n");
+		return 0xBC;
+	}
+	result = clock_diff(&begin, &end);
+	clock_print(&result);
+#endif
+
+
+#if defined (EVAL_SEALING)
+	printf("Measuring 10 iterations of sealing data...\n");
+	ret_begin = clock_gettime(clock_id, &begin);
+for (size_t i = 0; i < 10; i++) {
+#endif
 
 	// Now that MA completed successfully, we seal the client data:
 
@@ -347,6 +429,18 @@ static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
 		return 0xE3;
 	}
 	LOG("ecall_seal_data: OK\n");
+
+#if defined (EVAL_SEALING)
+}
+	ret_end = clock_gettime(clock_id, &end);
+
+	if (ret_begin || ret_end) {
+		fprintf(stderr, "Error measuring execution time\n");
+		return 0xBC;
+	}
+	result = clock_diff(&begin, &end);
+	clock_print(&result);
+#endif
 
 	return 0;
 }
@@ -373,6 +467,12 @@ static int run_unsealing(sgx_enclave_id_t *eid, SSL *ssl,
 {
 	uint8_t buffer[1024] = {0};
 	uint32_t length;
+
+#if defined (EVAL_UNSEALING)
+	printf("Measuring 1K iterations of unsealing protocol setup...\n");
+	ret_begin = clock_gettime(clock_id, &begin);
+for (size_t i = 0; i < 1000; i++) {
+#endif
 
 	// get m1 (=m21 in CSS specification) in A (initiator)
 	struct ipas_u_m1 m1 = {0};
@@ -410,6 +510,24 @@ static int run_unsealing(sgx_enclave_id_t *eid, SSL *ssl,
 		return 0xE2;
 	}
 
+#if defined (EVAL_UNSEALING)
+}
+	ret_end = clock_gettime(clock_id, &end);
+
+	if (ret_begin || ret_end) {
+		fprintf(stderr, "Error measuring execution time\n");
+		return 0xBC;
+	}
+	result = clock_diff(&begin, &end);
+	clock_print(&result);
+#endif
+
+
+#if defined (EVAL_UNSEALING)
+	printf("Measuring 10 iterations of unsealing data...\n");
+	ret_begin = clock_gettime(clock_id, &begin);
+for (size_t i = 0; i < 10; i++) {
+#endif
 
 	// Now that MA completed successfully, we unseal the client data:
 
@@ -421,6 +539,18 @@ static int run_unsealing(sgx_enclave_id_t *eid, SSL *ssl,
 		return 0xE3;
 	}
 	LOG("ecall_unseal_data: OK\n");
+
+#if defined (EVAL_UNSEALING)
+}
+	ret_end = clock_gettime(clock_id, &end);
+
+	if (ret_begin || ret_end) {
+		fprintf(stderr, "Error measuring execution time\n");
+		return 0xBC;
+	}
+	result = clock_diff(&begin, &end);
+	clock_print(&result);
+#endif
 
 	return 0;
 }

@@ -48,10 +48,12 @@ endif
 SGX_MODE ?= HW
 SGX_DEBUG ?= 1
 SGX_PRERELEASE ?= 0
+EVALUATE ?= 0
 
 $(info [SGX_MODE] $(SGX_MODE))
 $(info [SGX_DEBUG] $(SGX_DEBUG))
 $(info [SGX_PRERELEASE] $(SGX_PRERELEASE))
+$(info [EVALUATE] $(EVALUATE))
 
 define GOOD
 	@echo -n $1
@@ -105,6 +107,12 @@ ifeq ($(SGX_PRERELEASE),1)
 else
 endif
 # TODO Verificar flags com prerelease, etc
+
+ifeq ($(EVALUATE),1)
+	CFLAGS += -DEVALUATE -DEVAL_MA -DEVAL_SEALING -DEVAL_UNSEALING
+else
+	CFLAGS += -UEVALUATE -UEVAL_MA -UEVAL_SEALING -UEVAL_UNSEALING
+endif
 
 ENC_IPATHS := \
 		-I$(IPAS_INC_DIR) \
