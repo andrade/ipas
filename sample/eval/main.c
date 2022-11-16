@@ -209,9 +209,9 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 	uint32_t length;
 
 #if defined (EVAL_MA)
-	printf("Measuring 3 iterations of MA protocol...\n");
+	printf("Measuring 30 iterations of MA (eval <> CSS <> RAP <> IAS)...\n");
 	ret_begin = clock_gettime(clock_id, &begin);
-for (size_t i = 0; i < 3; i++) {
+for (size_t i = 0; i < 30; i++) {
 #endif
 
 	// get m1 in A (initiator)
@@ -361,7 +361,7 @@ static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
 	uint32_t length;
 
 #if defined (EVAL_SEALING)
-	printf("Measuring 1K iterations of sealing protocol setup...\n");
+	printf("Measuring 1K iterations of sealing protocol (eval <> CSS)...\n");
 	ret_begin = clock_gettime(clock_id, &begin);
 for (size_t i = 0; i < 1000; i++) {
 #endif
@@ -414,9 +414,9 @@ for (size_t i = 0; i < 1000; i++) {
 
 
 #if defined (EVAL_SEALING)
-	printf("Measuring 10 iterations of sealing data...\n");
+	printf("Measuring 1K iterations of sealing data...\n");
 	ret_begin = clock_gettime(clock_id, &begin);
-for (size_t i = 0; i < 10; i++) {
+for (size_t i = 0; i < 1000; i++) {
 #endif
 
 	// Now that MA completed successfully, we seal the client data:
@@ -469,7 +469,7 @@ static int run_unsealing(sgx_enclave_id_t *eid, SSL *ssl,
 	uint32_t length;
 
 #if defined (EVAL_UNSEALING)
-	printf("Measuring 1K iterations of unsealing protocol setup...\n");
+	printf("Measuring 1K iterations of unsealing protocol (eval <> CSS)...\n");
 	ret_begin = clock_gettime(clock_id, &begin);
 for (size_t i = 0; i < 1000; i++) {
 #endif
@@ -524,9 +524,9 @@ for (size_t i = 0; i < 1000; i++) {
 
 
 #if defined (EVAL_UNSEALING)
-	printf("Measuring 10 iterations of unsealing data...\n");
+	printf("Measuring 1K iterations of unsealing data...\n");
 	ret_begin = clock_gettime(clock_id, &begin);
-for (size_t i = 0; i < 10; i++) {
+for (size_t i = 0; i < 1000; i++) {
 #endif
 
 	// Now that MA completed successfully, we unseal the client data:
