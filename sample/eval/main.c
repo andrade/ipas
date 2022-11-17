@@ -209,6 +209,10 @@ static int run_ma_step_2_execute(struct ipas_attest_st *ia, SSL *ssl)
 	uint32_t length;
 
 #if defined (EVAL_MA)
+	// wall time
+	struct timespec tp1, tp2, tp3;
+	int w1 = clock_gettime(CLOCK_MONOTONIC_RAW, &tp1);
+
 	printf("Measuring 30 iterations of MA (eval <> CSS <> RAP <> IAS)...\n");
 	ret_begin = clock_gettime(clock_id, &begin);
 for (size_t i = 0; i < 30; i++) {
@@ -320,6 +324,15 @@ for (size_t i = 0; i < 30; i++) {
 	}
 	result = clock_diff(&begin, &end);
 	clock_print(&result);
+
+	// wall time
+	int w2 = clock_gettime(CLOCK_MONOTONIC_RAW, &tp2);
+	if (w1 || w2) {
+		fprintf(stderr, "Error measuring wall execution time\n");
+		return 0xBC;
+	}
+	tp3 = clock_diff(&tp1, &tp2);
+	clock_print(&tp3);
 #endif
 
 	free(buffer);
