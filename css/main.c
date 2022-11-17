@@ -807,6 +807,8 @@ static int process_m21(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen,
 	return 0;
 }
 
+static int cleanup(int result);
+
 // Processes one client request: deserializes part of request from client, finds message type, calls correct handling function.
 // Caller allocates read and write buffers.
 static int process_request(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, const uint8_t *rbuf, uint32_t rlen)
@@ -823,6 +825,7 @@ static int process_request(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, const u
 
 	switch (m.which) {
 	case CSSMessage_m1:
+		cleanup(UINT32_MAX); // release resources before creating new structs
 		return process_m1(wbuf, wcap, wlen, &m);
 	case CSSMessage_m3:
 		return process_m3(wbuf, wcap, wlen, &m);
