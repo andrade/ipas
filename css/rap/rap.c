@@ -119,7 +119,7 @@ int get_sigrl(uint32_t *code, int fd_ignored, sgx_epid_group_id_t *gid)
 		fprintf(stderr, "Error: rap_decode_reply_sigrl\n");
 		return 111;
 	}
-	fprintf(stderr, "HTTP response code received (SigRL): %"PRIu32"\n", ra_sigrl.code);
+	LOG("HTTP response code received (SigRL): %"PRIu32"\n", ra_sigrl.code);
 	*code = ra_sigrl.code;
 
 
@@ -187,7 +187,7 @@ int get_report(uint32_t *code,
 		fprintf(stderr, "rap_decode_reply_report\n");
 		return 111;
 	}
-	fprintf(stderr, "HTTP response code received (report): %"PRIu32"\n", rr.code);
+	LOG("HTTP response code received (report): %"PRIu32"\n", rr.code);
 
 	*code = rr.code;
 	snprintf(rid, rid_cap, "%s", rr.rid);

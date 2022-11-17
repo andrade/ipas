@@ -7,6 +7,8 @@
 // #include <foossl_server.h>
 #include <foossl_common.h>
 
+#include "debug.h"
+
 #include "ssl.h"
 
 int ssl_handle_request(SSL *ssl, int (*f)(uint8_t *, uint32_t, uint32_t *, const uint8_t *, uint32_t), int (*finalize)(int))
@@ -25,7 +27,7 @@ int ssl_handle_request(SSL *ssl, int (*f)(uint8_t *, uint32_t, uint32_t *, const
 		return finalize(503);
 	}
 	len = ntohl(len);
-	fprintf(stdout, "read %"PRIu32" bytes\n", len);
+	LOG("read %"PRIu32" bytes\n", len);
 
 	if (len > bsz) {
 		fprintf(stderr, "Error: len > cap (%"PRIu32", %zu)\n", len, bsz);

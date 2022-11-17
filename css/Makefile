@@ -46,10 +46,12 @@ endif
 SGX_MODE ?= HW
 SGX_DEBUG ?= 1
 SGX_PRERELEASE ?= 0
+EVALUATE ?= 0
 
 $(info [SGX_MODE] $(SGX_MODE))
 $(info [SGX_DEBUG] $(SGX_DEBUG))
 $(info [SGX_PRERELEASE] $(SGX_PRERELEASE))
+$(info [EVALUATE] $(EVALUATE))
 
 define GOOD
 	@echo -n $1
@@ -91,6 +93,12 @@ ifeq ($(SGX_PRERELEASE),1)
 else
 	CFLAGS += -UDEBUG -DNDEBUG -UEDEBUG
 endif # SGX_PRERELEASE
+endif
+
+ifeq ($(EVALUATE),1)
+	CFLAGS += -DEVALUATE
+else
+	CFLAGS += -UEVALUATE
 endif
 
 APP_CFLAGS := $(CFLAGS) \

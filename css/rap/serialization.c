@@ -318,7 +318,7 @@ int rap_decode_reply_sigrl(struct ra_sigrl *data, const uint8_t *a, size_t n)
 	root.p = capn_getp(capn_root(&rc), 0, 1);
 	read_RAPMessage(&rep, root);
 
-	fprintf(stderr, "deserialized reply, which index is: %d\n", rep.which);
+	LOG("deserialized reply, which index is: %d\n", rep.which);
 
 	struct ResponseSigrl r2;
 	ResponseSigrl_ptr inner_rep = rep.responseSigrl;
@@ -327,7 +327,7 @@ int rap_decode_reply_sigrl(struct ra_sigrl *data, const uint8_t *a, size_t n)
 	// snprintf(data->rid, sizeof(data->rid), "%s", r2.rid.p.data);
 	// TODO copy over SigRL and its size
 
-	fprintf(stderr, "deserialized reply, code: %"PRIu32"\n", r2.code);
+	LOG("deserialized reply, code: %"PRIu32"\n", r2.code);
 
 	return 0;
 }

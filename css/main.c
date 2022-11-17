@@ -15,6 +15,9 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <getopt.h>
+#if defined (EVALUATE)
+#include <time.h>                       // clock_gettime()
+#endif
 
 #include <foossl_server.h>
 #include <foossl_common.h>
@@ -36,6 +39,31 @@ static sgx_enclave_id_t eid; // enclave received from client
 static struct ipas_attest_st ia; // MA context
 static void *udso_h; // dlopen handle for the untrusted DSO
 static const char spid[32 + 1];
+
+#if defined (EVALUATE)
+static struct timespec clock_diff(struct timespec *begin, struct timespec *end)
+{
+	struct timespec result = {0};
+
+	if (begin->tv_nsec > end->tv_nsec) {
+		result.tv_nsec = (1000000000 - begin->tv_nsec) + end->tv_nsec;
+		result.tv_sec = (end->tv_sec - begin->tv_sec) - 1;
+	} else {
+		result.tv_nsec = end->tv_nsec - begin->tv_nsec;
+		result.tv_sec = end->tv_sec - begin->tv_sec;
+	}
+
+	return result;
+}
+
+static void clock_print(struct timespec *tp)
+{
+	long long secs = tp->tv_sec;
+	long nsecs = tp->tv_nsec;
+
+	printf("%4lld.%.9ld\n", secs, nsecs);
+}
+#endif
 
 static int create_enclave_from_buf(sgx_enclave_id_t *eid, uint8_t *enclave, size_t size)
 {
@@ -313,7 +341,9 @@ static int process_m1(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 		LOG("Error: ipas_ma_get_p1\n");
 		return fail_m1(wbuf, wcap, wlen, &ia, CSSMessageStatus_failure);
 	}
+#ifdef DEBUG
 	ipas_ma_dump_p1(&p1);
+#endif
 
 	struct ipas_ma_p2 p2 = {0};
 	if (get_p2(&ia, &p1, &p2)) {
@@ -330,7 +360,9 @@ static int process_m1(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 		LOG("Error: ipas_ma_get_m2\n");
 		return fail_m1(wbuf, wcap, wlen, &ia, CSSMessageStatus_failure);
 	}
+#ifdef DEBUG
 	ipas_ma_m2_dump(&m2);
+#endif
 
 
 	// prepare reply:
@@ -490,7 +522,9 @@ static int process_m3(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 		LOG("Error: ipas_ma_get_p3 (%d)\n", r);
 		return fail_m3(wbuf, wcap, wlen, &ia, CSSMessageStatus_failure);
 	}
+#ifdef DEBUG
 	ipas_ma_p3_dump(&p3);
+#endif
 
 	struct ipas_ma_p4 p4 = {0};
 	if (get_p4(&ia, &p3, &p4)) {
@@ -505,7 +539,9 @@ static int process_m3(uint8_t *wbuf, uint32_t wcap, uint32_t *wlen, struct CSSMe
 		LOG("Error: ipas_ma_get_m4 (%d)\n", r);
 		return fail_m3(wbuf, wcap, wlen, &ia, CSSMessageStatus_failure);
 	}
+#ifdef DEBUG
 	ipas_ma_dump_m4(&m4);
+#endif
 
 
 	// prepare reply:
@@ -870,12 +906,30 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
+#if defined (EVALUATE)
+		clockid_t clock_id = CLOCK_PROCESS_CPUTIME_ID;
+		struct timespec begin, end, result;
+		int ret_begin, ret_end;
+
+		printf("Measuring ssl_handle_request()...\n");
+		ret_begin = clock_gettime(clock_id, &begin);
+#endif
 		while (!ssl_handle_request(ssl, process_request, cleanup));
 		// int r;
 		// do {
 		// 	LOG("Handling next request...\n");
 		// 	r = ssl_handle_request(ssl, process_request);
 		// } while (!r);
+#if defined (EVALUATE)
+		ret_end = clock_gettime(clock_id, &end);
+
+		if (ret_begin || ret_end) {
+			fprintf(stderr, "Error measuring execution time\n");
+			return 0xBC;
+		}
+		result = clock_diff(&begin, &end);
+		clock_print(&result);
+#endif
 
 		if (foossl_server_loop_release(ssl)) {
 			perror("release: could not release client resources");
