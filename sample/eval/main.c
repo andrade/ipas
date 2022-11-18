@@ -370,6 +370,7 @@ static int run_sealing(sgx_enclave_id_t *eid, SSL *ssl,
 		const void *toseal, size_t toseal_size,
 		void *sealed_data, size_t sd_cap, size_t *sd_len)
 {
+#if !defined (SGX_SEALING)
 	uint8_t buffer[1024] = {0};
 	uint32_t length;
 
@@ -424,6 +425,7 @@ for (size_t i = 0; i < 1000; i++) {
 	result = clock_diff(&begin, &end);
 	clock_print(&result);
 #endif
+#endif // SGX_SEALING
 
 
 #if defined (EVAL_SEALING)
@@ -478,6 +480,7 @@ static int run_unsealing(sgx_enclave_id_t *eid, SSL *ssl,
 		const void *data, size_t size,
 		void *unsealed_data, size_t ud_cap, size_t *ud_len)
 {
+#if !defined (SGX_SEALING)
 	uint8_t buffer[1024] = {0};
 	uint32_t length;
 
@@ -534,6 +537,7 @@ for (size_t i = 0; i < 1000; i++) {
 	result = clock_diff(&begin, &end);
 	clock_print(&result);
 #endif
+#endif // SGX_SEALING
 
 
 #if defined (EVAL_UNSEALING)
