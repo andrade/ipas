@@ -19,10 +19,13 @@ int ecall_seal_data(void *data, uint32_t capacity, uint32_t *size,
 		const void *toseal, uint32_t toseal_size)
 {
 	uint32_t sd_len = ipas_calc_sealed_data_size(toseal_size, 0);
+	if (sd_len == UINT32_MAX) {
+		return 1;
+	}
 
 	struct ipas_sealed_data *sd = malloc(sd_len);
 	if (!sd) {
-		return 1;
+		return 2;
 	}
 	if (ipas_seal_data(toseal_size, toseal, 0, NULL, sd_len, sd)) {
 		return 3;
